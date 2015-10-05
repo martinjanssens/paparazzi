@@ -58,8 +58,12 @@ void vertical_ctrl_module_run(bool_t in_flight);
 
 void vertical_ctrl_module_init(void)
 {
+
   v_ctrl.agl = 0.0f;
+  v_ctrl.agl_lp = 0.0f;
+  v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 1.0f;
+  v_ctrl.lp_factor = 0.9f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.sum_err = 0.0f;
@@ -71,17 +75,38 @@ void vertical_ctrl_module_init(void)
 
 void vertical_ctrl_module_run(bool_t in_flight)
 {
+  float new_lp, divergence;
+
   if (!in_flight) {
     // Reset integrators
     v_ctrl.sum_err = 0;
     stabilization_cmd[COMMAND_THRUST] = 0;
   } else {
-    int32_t nominal_throttle = 0.5 * MAX_PPRZ;
+
+	// calculate the new low-pass height and the velocity
+	new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
+	v_ctrl.vel = new_lp - v_ctrl.agl_lp; // should still be divided by dt!
+	v_ctrl.agl_lp = new_lp;
+	// calculate the fake divergence:
+	if(abs(v_ctrl.agl_lp) > 0.001f) {
+		divergence = v_ctrl.vel / v_ctrl.agl_lp;
+	}
+	else divergence = 1000.0f;
+	// use the divergence for control:
+	float err = v_ctrl.setpoint - divergence;
+	int32_t thrust = nominal_throttle + v_ctrl.pgain * err + v_ctrl.igain * v_ctrl.sum_err; // still with i-gain (should be determined with 0-divergence maneuver)
+	Bound(thrust, 0, MAX_PPRZ);
+	stabilization_cmd[COMMAND_THRUST] = thrust;
+	v_ctrl.sum_err += err;
+
+	// old control:
+	/*int32_t nominal_throttle = 0.5 * MAX_PPRZ;
     float err = v_ctrl.setpoint - v_ctrl.agl;
     int32_t thrust = nominal_throttle + v_ctrl.pgain * err + v_ctrl.igain * v_ctrl.sum_err;
     Bound(thrust, 0, MAX_PPRZ);
     stabilization_cmd[COMMAND_THRUST] = thrust;
-    v_ctrl.sum_err += err;
+    v_ctrl.sum_err += err;*/
+
   }
 }
 

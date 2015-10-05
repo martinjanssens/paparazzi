@@ -16,7 +16,8 @@
   <settings>
     <dl_settings>
       <dl_settings NAME="VertCtrlModDemo">
-        <dl_setting var="v_ctrl.setpoint" min="0" step="0.01" max="10" module="ctrl/vertical_ctrl_module_demo" shortname="height sp"/>
+      	<dl_setting var="v_ctrl.lp_factor" min="0" step="0.01" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="lp_factor"/>
+        <dl_setting var="v_ctrl.setpoint" min="-1" step="0.01" max="0" module="ctrl/vertical_ctrl_module_demo" shortname="div sp"/>
         <dl_setting var="v_ctrl.pgain" min="0" step="0.01" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="pgain" param="VERTICAL_CTRL_MODULE_PGAIN"/>
         <dl_setting var="v_ctrl.igain" min="0" step="0.01" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="igain" param="VERTICAL_CTRL_MODULE_IGAIN"/>
       </dl_settings>

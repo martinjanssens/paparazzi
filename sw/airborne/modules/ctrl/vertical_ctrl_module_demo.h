@@ -32,6 +32,9 @@
 
 struct VerticalCtrlDemo {
   float agl;
+  float agl_lp;
+  float lp_factor;
+  float vel;
   float setpoint;
   float pgain;
   float igain;
