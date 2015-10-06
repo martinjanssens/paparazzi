@@ -39,6 +39,7 @@ struct VerticalCtrlDemo {
   float pgain;
   float igain;
   float sum_err;
+  float nominal_thrust;
 };
 
 extern struct VerticalCtrlDemo v_ctrl;

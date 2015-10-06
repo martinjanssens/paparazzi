@@ -2151,7 +2151,9 @@
       <field name="yaw_c"  type="float"/>
   </message>
 
-  <!-- 251 is free -->
+  <message name="FAKE_DIVERGENCE" id="251">
+    <field name="divergence"                type="float"/>
+  </message>
   <!-- 252 is free -->
 
   <message name="I2C_ERRORS" id="253">

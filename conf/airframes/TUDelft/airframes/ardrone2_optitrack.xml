@@ -28,7 +28,7 @@
 
   <modules main_freq="512">
     <load name="bat_voltage_ardrone2.xml"/>
-    <!-- load name="vertical_ctrl_module_demo.xml"/ -->
+    <load name="vertical_ctrl_module_demo.xml"/>
   </modules>
 
   <commands>
@@ -217,7 +217,7 @@
   <section name="AUTOPILOT">
     <define name="MODE_STARTUP" value="AP_MODE_NAV"/>
     <define name="MODE_MANUAL" value="AP_MODE_ATTITUDE_DIRECT"/>
-    <define name="MODE_AUTO1" value="AP_MODE_HOVER_Z_HOLD"/>
+    <define name="MODE_AUTO1" value="AP_MODE_MODULE"/>
     <define name="MODE_AUTO2" value="AP_MODE_NAV"/>
     <define name="ARRIVED_AT_WAYPOINT" value="0.15"/>
     <define name="AUTOPILOT_IN_FLIGHT_MIN_THRUST" value="1500"/>
