@@ -93,6 +93,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	}
 	else divergence = 1000.0f;
 	// use the divergence for control:
+	int32_t nominal_throttle = 0.5 * MAX_PPRZ;
 	float err = v_ctrl.setpoint - divergence;
 	int32_t thrust = nominal_throttle + v_ctrl.pgain * err + v_ctrl.igain * v_ctrl.sum_err; // still with i-gain (should be determined with 0-divergence maneuver)
 	Bound(thrust, 0, MAX_PPRZ);
