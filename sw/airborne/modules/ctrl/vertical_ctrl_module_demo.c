@@ -27,8 +27,15 @@
 // variables for in message:
 float divergence;
 float normalized_thrust;
-float cov;
+float cov_div;
 float pstate;
+
+// used for automated landing:
+//#include "subsystems/navigation/common_flight_plan.h"
+//#include "generated/flight_plan.h"
+#include "firmwares/rotorcraft/autopilot.h"
+//#include "subsystems/nav.h"
+#include "subsystems/navigation/common_flight_plan.h"
 
 #include "subsystems/datalink/telemetry.h"
 #include <time.h>
@@ -36,7 +43,7 @@ float pstate;
 long previous_time;
 
  static void send_divergence(void) {
-  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &normalized_thrust, &cov);
+  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &normalized_thrust, &cov_div, &pstate);
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"
@@ -110,7 +117,7 @@ void vertical_ctrl_module_init(void)
 
   normalized_thrust = 0.0f;
   divergence = 0.0f;
-  cov = 0.0f;
+  cov_div = 0.0f;
   pstate = v_ctrl.pgain;
 
   // Subscribe to the altitude above ground level ABI messages
@@ -179,22 +186,23 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
 		  ind_hist++;
 		  if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-		  cov = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
-		  if(abs(cov) > v_ctrl.cov_limit) {
+		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+		  if(abs(cov_div) > v_ctrl.cov_limit) {
 			  // set to NAV and give land command:
-
+			  autopilot_set_mode(AP_MODE_NAV);
+			  nav_goto_block( 9 );
 		  }
 		  // bound thrust:
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  printf("Err = %f, div = %f, cov = %f\n", err, divergence, cov);
+		  printf("Err = %f, div = %f, cov = %f\n", err, divergence, cov_div);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
 
 		  // adapt the gains according to the error in covariance:
-		  float error_cov = v_ctrl.cov_set_point - cov;
+		  float error_cov = v_ctrl.cov_set_point - cov_div;
 		  pstate += (v_ctrl.igain_adaptive * pstate) * error_cov;
 
 		  // regulate the divergence:
@@ -202,6 +210,27 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  float err = v_ctrl.setpoint - divergence;
   		  float pused = pstate + (v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
   		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+
+  		  // histories and cov detection:
+  		  normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
+  		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
+  		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+  		  ind_hist++;
+  		  if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
+  		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+
+  		  // landing condition based on pstate (if too low)
+  		  /*if(abs(cov_div) > v_ctrl.cov_limit) {
+  			  // set to NAV and give land command:
+  			  autopilot_set_mode(AP_MODE_NAV);
+  			  nav_goto_block( 9 );
+  		  }*/
+
+  		  // bound thrust:
+  		  Bound(thrust, 0, MAX_PPRZ);
+  		  stabilization_cmd[COMMAND_THRUST] = thrust;
+  		  v_ctrl.sum_err += err;
+  		  printf("Err cov = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, err, pstate, pused);
 
 	  }
 
