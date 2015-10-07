@@ -9,7 +9,7 @@
     </description>
     <define name="VERTICAL_CTRL_MODULE_AGL_ID" value="ABI_BROADCAST" description="Sender id of the AGL (sonar) ABI message"/>
     <section name="VERTICAL_CTRL_MODULE" prefix="VERTICAL_CTRL_MODULE_">
-      <define name="PGAIN" value="0.020" description="P gain on height error"/>
+      <define name="PGAIN" value="0.40" description="P gain on height error"/>
       <define name="IGAIN" value="0.00" description="I gain on summed height error"/>
     </section>
   </doc>
@@ -19,7 +19,7 @@
 	<dl_setting var="v_ctrl.nominal_thrust" min="0" step="0.001" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="nominal_thrust"/>
       	<dl_setting var="v_ctrl.lp_factor" min="0" step="0.01" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="lp_factor"/>
         <dl_setting var="v_ctrl.setpoint" min="-1" step="0.01" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="div sp"/>
-        <dl_setting var="v_ctrl.pgain" min="0" step="0.001" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="pgain" param="VERTICAL_CTRL_MODULE_PGAIN"/>
+        <dl_setting var="v_ctrl.pgain" min="0" step="0.001" max="3" module="ctrl/vertical_ctrl_module_demo" shortname="pgain" param="VERTICAL_CTRL_MODULE_PGAIN"/>
         <dl_setting var="v_ctrl.igain" min="0" step="0.001" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="igain" param="VERTICAL_CTRL_MODULE_IGAIN"/>
       </dl_settings>
     </dl_settings>

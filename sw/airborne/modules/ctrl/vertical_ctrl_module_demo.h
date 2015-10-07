@@ -28,6 +28,8 @@
 #ifndef VERTICAL_CTRL_MODULE_DEMO_H_
 #define VERTICAL_CTRL_MODULE_DEMO_H_
 
+#define COV_WINDOW_SIZE 50
+
 #include "std.h"
 
 struct VerticalCtrlDemo {
@@ -44,11 +46,18 @@ struct VerticalCtrlDemo {
 
 extern struct VerticalCtrlDemo v_ctrl;
 
+unsigned int ind_hist;
+float thrust_history[COV_WINDOW_SIZE];
+float divergence_history[COV_WINDOW_SIZE];
+
 // for example use the standard horizontal (hover) mode
 #define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_HOVER
 
 // and own guidance_v
 #define GUIDANCE_V_MODE_MODULE_SETTING GUIDANCE_V_MODE_MODULE
+
+float get_cov(float* a, float* b, int n_elements);
+float get_mean(float *a, int n_elements);
 
 // Implement own Vertical loops
 extern void guidance_v_module_init(void);

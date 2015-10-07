@@ -69,6 +69,7 @@ void vertical_ctrl_module_run(bool_t in_flight);
 
 void vertical_ctrl_module_init(void)
 {
+  unsigned int i;
 
   v_ctrl.agl = 0.0f;
   v_ctrl.agl_lp = 0.0f;
@@ -80,6 +81,13 @@ void vertical_ctrl_module_init(void)
   v_ctrl.sum_err = 0.0f;
   v_ctrl.nominal_thrust = 0.640f;
   previous_time = time(NULL);
+
+  // clear histories:
+  ind_hist = 0;
+  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+	  thrust_history[i] = 0;
+	  divergence_history[i] = 0;
+  }
 
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
@@ -116,16 +124,26 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
 		v_ctrl.agl_lp = new_lp;
 		// calculate the fake divergence:
-		if(abs(v_ctrl.agl_lp) > 0.001f) {
+		if(v_ctrl.agl_lp > 0.0001f) {
 			divergence = v_ctrl.vel / v_ctrl.agl_lp;
+
 			// use the divergence for control:
 			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
 			float err = v_ctrl.setpoint - divergence;
 			int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+
+			// histories and cov detection:
+			thrust_history[ind_hist%COV_WINDOW_SIZE] = (float)(thrust / (MAX_PPRZ / 100));
+			divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+			ind_hist++;
+			if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
+			float cov = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+
+			// bound thrust:
 			Bound(thrust, 0, MAX_PPRZ);
 			stabilization_cmd[COMMAND_THRUST] = thrust;
 			v_ctrl.sum_err += err;
-			printf("Err = %f, div = %f, height = %f\n", err, divergence, v_ctrl.agl_lp);
+			printf("Err = %f, div = %f, cov = %f\n", err, divergence, cov);
 		}
 		else
 		{
@@ -143,6 +161,35 @@ void vertical_ctrl_module_run(bool_t in_flight)
     v_ctrl.sum_err += err;*/
 
   }
+}
+
+float get_cov(float* a, float* b, int n_elements)
+{
+	// determine means for each vector:
+	float mean_a = get_mean(a, n_elements);
+	float mean_b = get_mean(b, n_elements);
+	float cov = 0;
+	for(unsigned int i = 0; i < n_elements; i++)
+	{
+		cov += (a[i] - mean_a) * (b[i] - mean_b);
+	}
+
+	cov /= n_elements;
+
+	return cov;
+}
+
+float get_mean(float *a, int n_elements)
+{
+	// determine the mean for the vector:
+	float mean = 0;
+	for(unsigned int i = 0; i < n_elements; i++)
+	{
+		mean += a[i];
+	}
+	mean /= n_elements;
+
+	return mean;
 }
 
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
