@@ -26,7 +26,10 @@
 
 float divergence;
 
- #include "subsystems/datalink/telemetry.h"
+#include "subsystems/datalink/telemetry.h"
+#include <time.h>
+
+long previous_time;
 
  static void send_divergence(void) {
   DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence);
@@ -75,7 +78,8 @@ void vertical_ctrl_module_init(void)
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.6f;
+  v_ctrl.nominal_thrust = 0.55f;
+  previous_time = time(NULL);
 
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
@@ -87,26 +91,35 @@ void vertical_ctrl_module_run(bool_t in_flight)
 {
   float new_lp;
 
+  // get dt:
+  struct timespec spec;
+  clock_gettime(CLOCK_REALTIME, &spec);
+  long new_time = spec.tv_nsec / 1.0E6;
+  long delta_t = new_time - previous_time;
+  float dt = ((float)delta_t) / 1000.0f;
+  previous_time = new_time;
+  //printf("dt = %f\n", dt);
+
+
   if (!in_flight) {
     // Reset integrators
     v_ctrl.sum_err = 0;
     stabilization_cmd[COMMAND_THRUST] = 0;
   } else {
-
 	// calculate the new low-pass height and the velocity
 	new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
-	v_ctrl.vel = new_lp - v_ctrl.agl_lp; // should still be divided by dt!
+	v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
 	v_ctrl.agl_lp = new_lp;
 	// calculate the fake divergence:
 	if(abs(v_ctrl.agl_lp) > 0.001f) {
 		divergence = v_ctrl.vel / v_ctrl.agl_lp;
 	}
 	else divergence = 1000.0f;
-	printf("agl_lp = %f, vel = %f, divergence = %f.\n", v_ctrl.agl_lp, v_ctrl.vel, divergence);
+	printf("agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n", v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
 	// use the divergence for control:
 	int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
 	float err = v_ctrl.setpoint - divergence;
-	int32_t thrust = nominal_throttle;// + v_ctrl.pgain * err + v_ctrl.igain * v_ctrl.sum_err; // still with i-gain (should be determined with 0-divergence maneuver)
+	int32_t thrust = nominal_throttle + v_ctrl.pgain * err; // + v_ctrl.igain * v_ctrl.sum_err; // still with i-gain (should be determined with 0-divergence maneuver)
 	Bound(thrust, 0, MAX_PPRZ);
 	stabilization_cmd[COMMAND_THRUST] = thrust;
 	v_ctrl.sum_err += err;
