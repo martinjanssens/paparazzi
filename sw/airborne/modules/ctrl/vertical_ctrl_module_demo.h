@@ -42,6 +42,12 @@ struct VerticalCtrlDemo {
   float igain;
   float sum_err;
   float nominal_thrust;
+  int VISION_METHOD;
+  int CONTROL_METHOD;
+  float cov_set_point;
+  float cov_limit;
+  float pgain_adaptive;
+  float igain_adaptive;
 };
 
 extern struct VerticalCtrlDemo v_ctrl;
