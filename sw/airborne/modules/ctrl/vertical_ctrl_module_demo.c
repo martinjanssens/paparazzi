@@ -74,11 +74,11 @@ void vertical_ctrl_module_init(void)
   v_ctrl.agl_lp = 0.0f;
   v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 0.0f;
-  v_ctrl.lp_factor = 0.9f;
+  v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.55f;
+  v_ctrl.nominal_thrust = 0.640f;
   previous_time = time(NULL);
 
   // Subscribe to the altitude above ground level ABI messages
@@ -98,8 +98,10 @@ void vertical_ctrl_module_run(bool_t in_flight)
   long delta_t = new_time - previous_time;
   float dt = ((float)delta_t) / 1000.0f;
   previous_time = new_time;
-  //printf("dt = %f\n", dt);
 
+  // USE OPTITRACK HEIGHT:
+  // printf("z = %f\n", (float) gps.lla_pos.alt);
+  v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
 
   if (!in_flight) {
     // Reset integrators
@@ -108,24 +110,30 @@ void vertical_ctrl_module_run(bool_t in_flight)
   } else {
 	// calculate the new low-pass height and the velocity
 	new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
-	v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
-	v_ctrl.agl_lp = new_lp;
-	// calculate the fake divergence:
-	if(abs(v_ctrl.agl_lp) > 0.001f) {
-		divergence = v_ctrl.vel / v_ctrl.agl_lp;
+
+	if(dt > 0.0001f)
+	{
+		v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
+		v_ctrl.agl_lp = new_lp;
+		// calculate the fake divergence:
+		if(abs(v_ctrl.agl_lp) > 0.001f) {
+			divergence = v_ctrl.vel / v_ctrl.agl_lp;
+			// use the divergence for control:
+			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+			float err = v_ctrl.setpoint - divergence;
+			int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+			Bound(thrust, 0, MAX_PPRZ);
+			stabilization_cmd[COMMAND_THRUST] = thrust;
+			v_ctrl.sum_err += err;
+			printf("Err = %f, div = %f, height = %f\n", err, divergence, v_ctrl.agl_lp);
+		}
+		else
+		{
+			divergence = 1000.0f;
+			printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
+		}
+		//printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
 	}
-	else divergence = 1000.0f;
-	printf("agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n", v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
-	// use the divergence for control:
-	int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
-	float err = v_ctrl.setpoint - divergence;
-	int32_t thrust = nominal_throttle + v_ctrl.pgain * err; // + v_ctrl.igain * v_ctrl.sum_err; // still with i-gain (should be determined with 0-divergence maneuver)
-	Bound(thrust, 0, MAX_PPRZ);
-	stabilization_cmd[COMMAND_THRUST] = thrust;
-	v_ctrl.sum_err += err;
-
-
-
 	// old control:
 	/*int32_t nominal_throttle = 0.5 * MAX_PPRZ;
     float err = v_ctrl.setpoint - v_ctrl.agl;
@@ -139,7 +147,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
 {
-  printf("distance = %f\n", distance);
+  //printf("distance = %f\n", distance);
   v_ctrl.agl = distance;
 }
 
