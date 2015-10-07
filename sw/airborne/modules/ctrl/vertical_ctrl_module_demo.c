@@ -193,6 +193,16 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
 
+		  // adapt the gains according to the error in covariance:
+		  float error_cov = v_ctrl.cov_set_point - cov;
+		  pstate += (v_ctrl.igain_adaptive * pstate) * error_cov;
+
+		  // regulate the divergence:
+		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+  		  float err = v_ctrl.setpoint - divergence;
+  		  float pused = pstate + (v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
+  		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+
 	  }
 
 		//printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
