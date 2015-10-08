@@ -120,6 +120,8 @@ void vertical_ctrl_module_init(void)
   cov_div = 0.0f;
   pstate = v_ctrl.pgain;
 
+  v_ctrl.agl_lp = 0.0f;
+
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
 
@@ -143,6 +145,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  // Reset integrators
 	  v_ctrl.sum_err = 0;
 	  stabilization_cmd[COMMAND_THRUST] = 0;
+	  ind_hist = 0;
+	  v_ctrl.agl_lp = 0;
   } else {
 
 	  if(v_ctrl.VISION_METHOD == 0) {
@@ -152,6 +156,12 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
 		  // calculate the new low-pass height and the velocity
 		  new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
+		  // else we get an immediate jump in divergence when switching on.
+		  if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
+			  printf("Initialize!\n");
+			  v_ctrl.agl_lp = v_ctrl.agl;
+			  new_lp = v_ctrl.agl;
+		  }
 
 		  if(dt > 0.0001f)
 		  {
@@ -161,6 +171,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
+				  printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
 			  {
@@ -185,9 +196,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
 		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
 		  ind_hist++;
-		  if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
+		  //if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
 		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
-		  if(abs(cov_div) > v_ctrl.cov_limit) {
+		  if(ind_hist >= COV_WINDOW_SIZE && abs(cov_div) > v_ctrl.cov_limit) {
 			  // set to NAV and give land command:
 			  autopilot_set_mode(AP_MODE_NAV);
 			  nav_goto_block( 9 );
@@ -196,7 +207,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  printf("Err = %f, div = %f, cov = %f\n", err, divergence, cov_div);
+		  //printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, ind_hist);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
@@ -216,7 +227,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
   		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
   		  ind_hist++;
-  		  if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
+  		  //if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
   		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
 
   		  // landing condition based on pstate (if too low)

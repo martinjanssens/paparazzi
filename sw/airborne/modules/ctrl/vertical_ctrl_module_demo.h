@@ -52,7 +52,7 @@ struct VerticalCtrlDemo {
 
 extern struct VerticalCtrlDemo v_ctrl;
 
-unsigned int ind_hist;
+unsigned long ind_hist;
 float thrust_history[COV_WINDOW_SIZE];
 float divergence_history[COV_WINDOW_SIZE];
 
