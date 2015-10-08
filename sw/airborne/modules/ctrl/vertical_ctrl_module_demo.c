@@ -72,7 +72,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_AGL_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_CONTROL_METHOD
-#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 0
+#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 1
 #endif
 
 static abi_event agl_ev; ///< The altitude ABI event
@@ -195,7 +195,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
 		  float err = v_ctrl.setpoint - divergence;
 		  int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
-
+		  // make sure the p gain is logged:
+		  pstate = v_ctrl.pgain;
 		  // histories and cov detection:
 		  normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
@@ -219,12 +220,13 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 		  // adapt the gains according to the error in covariance:
 		  float error_cov = v_ctrl.cov_set_point - cov_div;
-		  pstate += (v_ctrl.igain_adaptive * pstate) * error_cov;
-
+		  pstate -= v_ctrl.igain_adaptive * error_cov;//(v_ctrl.igain_adaptive * pstate) * error_cov;
+		  if(pstate < 0.0f) pstate = 0.0f;
 		  // regulate the divergence:
 		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
   		  float err = v_ctrl.setpoint - divergence;
-  		  float pused = pstate + (v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
+  		  float pused = pstate - v_ctrl.pgain_adaptive * error_cov;//(v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
+  		  if(pused < 0.0f) pused = 0.0f;
   		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 
   		  // histories and cov detection:
@@ -246,7 +248,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  Bound(thrust, 0, MAX_PPRZ);
   		  stabilization_cmd[COMMAND_THRUST] = thrust;
   		  v_ctrl.sum_err += err;
-  		  printf("Err cov = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, err, pstate, pused);
+  		  printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
 
 	  }
 
