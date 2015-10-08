@@ -154,14 +154,19 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  // USE OPTITRACK HEIGHT:
 		  // printf("z = %f\n", (float) gps.lla_pos.alt);
 		  v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
-		  // calculate the new low-pass height and the velocity
-		  new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
 		  // else we get an immediate jump in divergence when switching on.
 		  if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
-			  printf("Initialize!\n");
-			  v_ctrl.agl_lp = v_ctrl.agl;
-			  new_lp = v_ctrl.agl;
+		  	  v_ctrl.agl_lp = v_ctrl.agl;
 		  }
+		  if(abs(v_ctrl.agl-v_ctrl.agl_lp) > 1.0f)
+		  {
+			  printf("Outlier: agl = %f, agl_lp = %f\n", v_ctrl.agl, v_ctrl.agl_lp);
+			  // ignore outliers:
+			  v_ctrl.agl = v_ctrl.agl_lp;
+		  }
+		  // calculate the new low-pass height and the velocity
+		  new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
+
 
 		  if(dt > 0.0001f)
 		  {
@@ -171,7 +176,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
-				  printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
+				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
 			  {
@@ -207,7 +212,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  //printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, ind_hist);
+		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, ind_hist);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
@@ -295,8 +300,19 @@ void guidance_v_module_init(void)
 
 void guidance_v_module_enter(void)
 {
+	int i;
+
   // reset integrator
   v_ctrl.sum_err = 0.0f;
+  ind_hist = 0;
+  v_ctrl.agl_lp = 0.0f;
+  cov_div = 0.0f;
+  normalized_thrust = 0.0f;
+
+  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+	  thrust_history[i] = 0;
+	  divergence_history[i] = 0;
+  }
 }
 
 void guidance_v_module_run(bool_t in_flight)
