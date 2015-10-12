@@ -26,6 +26,7 @@
 
 // variables for in message:
 float divergence;
+float divergence_vision;
 float normalized_thrust;
 float cov_div;
 float pstate;
@@ -59,6 +60,13 @@ long previous_time;
 #endif
 PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_AGL_ID)
 
+/* Use optical flow estimates */
+#ifndef VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID
+#define VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID ABI_BROADCAST
+#endif
+PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
+
+
 #ifndef VERTICAL_CTRL_MODULE_PGAIN
 #define VERTICAL_CTRL_MODULE_PGAIN 1.0
 #endif
@@ -76,12 +84,14 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_AGL_ID)
 #endif
 
 static abi_event agl_ev; ///< The altitude ABI event
+static abi_event optical_flow_ev;
 
 /// Callback function of the ground altitude
 static void vertical_ctrl_agl_cb(uint8_t sender_id __attribute__((unused)), float distance);
+// Callback function of the optical flow estimate:
+static void vertical_ctrl_optical_flow_cb(uint8_t sender_id __attribute__((unused)), uint32_t stamp, int16_t flow_x, int16_t flow_y, int16_t flow_der_x, int16_t flow_der_y, uint8_t quality, float size_divergence, float dist);
 
 struct VerticalCtrlDemo v_ctrl;
-
 
 void vertical_ctrl_module_init(void);
 void vertical_ctrl_module_run(bool_t in_flight);
@@ -117,6 +127,7 @@ void vertical_ctrl_module_init(void)
 
   normalized_thrust = 0.0f;
   divergence = 0.0f;
+  divergence_vision = 0.0f;
   cov_div = 0.0f;
   pstate = v_ctrl.pgain;
 
@@ -124,6 +135,8 @@ void vertical_ctrl_module_init(void)
 
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
+  // Subscribe to the optical flow estimator:
+  AbiBindMsgAGL(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID, &optical_flow_ev, vertical_ctrl_optical_flow_cb);
 
   register_periodic_telemetry(DefaultPeriodic, "FAKE_DIVERGENCE", send_divergence);
 }
@@ -131,7 +144,7 @@ void vertical_ctrl_module_init(void)
 void vertical_ctrl_module_run(bool_t in_flight)
 {
   float new_lp;
-
+  float div_factor;
   // get delta time, dt, to scale the divergence measurements:
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -176,6 +189,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
+				  printf("divergence optitrack: %f, divergence vision: %f\n", divergence, divergence_vision);
 				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
@@ -186,6 +200,11 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				  return;
 			  }
 		  }
+	  }
+	  else
+	  {
+		  divergence = divergence_vision;
+		  printf("Vision divergence = %f\n", divergence_vision);
 	  }
 
 	  if(v_ctrl.CONTROL_METHOD == 0) {
@@ -286,10 +305,16 @@ float get_mean(float *a, int n_elements)
 	return mean;
 }
 
+// Reading from "sensors":
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
 {
   //printf("distance = %f\n", distance);
   v_ctrl.agl = distance;
+}
+static void vertical_ctrl_optical_flow_cb(uint8_t sender_id, uint32_t stamp, int16_t flow_x, int16_t flow_y, int16_t flow_der_x, int16_t flow_der_y, uint8_t quality, float size_divergence, float dist)
+{
+  divergence_vision = size_divergence;
+  printf("Received divergence: %f\n", divergence_vision);
 }
 
 
