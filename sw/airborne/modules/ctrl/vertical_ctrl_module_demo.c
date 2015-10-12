@@ -31,6 +31,7 @@ float divergence_vision_dt;
 float normalized_thrust;
 float cov_div;
 float pstate;
+float pused;
 float dt;
 int vision_message_nr;
 int previous_message_nr;
@@ -48,7 +49,7 @@ int previous_message_nr;
 long previous_time;
 
  static void send_divergence(void) {
-  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &divergence_vision_dt, &normalized_thrust, &cov_div, &pstate);
+  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &divergence_vision_dt, &normalized_thrust, &cov_div, &pstate, &pused);
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"
@@ -136,6 +137,7 @@ void vertical_ctrl_module_init(void)
   cov_div = 0.0f;
   dt = 0.0f;
   pstate = v_ctrl.pgain;
+  pused = pstate;
   vision_message_nr = 1;
   previous_message_nr = 0;
   v_ctrl.agl_lp = 0.0f;
@@ -218,7 +220,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  else
 	  {
 		  if(vision_message_nr != previous_message_nr) {
-			  div_factor = -0.6f; // magic number
+			  div_factor = -1.28f; // magic number comprising field of view etc.
 			  divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
 			  printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 			  previous_message_nr = vision_message_nr;
@@ -239,6 +241,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 		  // make sure the p gain is logged:
 		  pstate = v_ctrl.pgain;
+		  pused = pstate;
 		  // histories and cov detection:
 		  normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
@@ -267,7 +270,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  // regulate the divergence:
 		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
   		  float err = v_ctrl.setpoint - divergence;
-  		  float pused = pstate - v_ctrl.pgain_adaptive * error_cov;//(v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
+  		  pused = pstate - v_ctrl.pgain_adaptive * error_cov;//(v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
   		  if(pused < 0.0f) pused = 0.0f;
   		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 

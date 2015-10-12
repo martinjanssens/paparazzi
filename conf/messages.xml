@@ -2157,6 +2157,7 @@
     <field name="normalized_thrust"         type="float"/>
     <field name="cov_div"		    type="float"/>
     <field name="pstate" 		    type="float"/>
+    <field name="pused" 		    type="float"/>
   </message>
   <!-- 252 is free -->
 
