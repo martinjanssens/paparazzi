@@ -27,6 +27,7 @@
 // variables for in message:
 float divergence;
 float divergence_vision;
+float divergence_vision_dt;
 float normalized_thrust;
 float cov_div;
 float pstate;
@@ -47,7 +48,7 @@ int previous_message_nr;
 long previous_time;
 
  static void send_divergence(void) {
-  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &normalized_thrust, &cov_div, &pstate);
+  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &divergence_vision_dt, &normalized_thrust, &cov_div, &pstate);
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"
@@ -131,6 +132,7 @@ void vertical_ctrl_module_init(void)
   normalized_thrust = 0.0f;
   divergence = 0.0f;
   divergence_vision = 0.0f;
+  divergence_vision_dt = 0.0f;
   cov_div = 0.0f;
   dt = 0.0f;
   pstate = v_ctrl.pgain;
@@ -156,6 +158,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   long new_time = spec.tv_nsec / 1.0E6;
   long delta_t = new_time - previous_time;
   dt += ((float)delta_t) / 1000.0f;
+  printf("dt = %f\n", dt);
   previous_time = new_time;
 
   if (!in_flight) {
@@ -194,15 +197,17 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
-				  if(fabs(divergence_vision/dt) > 1E-5)
-					  div_factor = divergence / (divergence_vision/dt);
-				  printf("divergence optitrack: %f, divergence vision: %f, factor = %f, dt = %f\n", divergence, divergence_vision/dt, div_factor, dt);
+				  divergence_vision_dt = (divergence_vision/dt);
+				  if(fabs(divergence_vision_dt) > 1E-5) {
+					  div_factor = divergence / divergence_vision_dt;
+				  }
+				  //printf("divergence optitrack: %f, divergence vision: %f, factor = %f, dt = %f\n", divergence, divergence_vision/dt, div_factor, dt);
 				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
 			  {
 				  divergence = 1000.0f;
-				  printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
+				  //printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
 				  // perform no control with this value (keeping thrust the same)
 				  return;
 			  }
@@ -328,7 +333,7 @@ float get_cov(float* a, float* b, int n_elements)
 // Reading from "sensors":
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
 {
-  //printf("distance = %f\n", distance);
+  printf("distance = %f\n", distance);
   v_ctrl.agl = distance;
 }
 static void vertical_ctrl_optical_flow_cb(uint8_t sender_id, uint32_t stamp, int16_t flow_x, int16_t flow_y, int16_t flow_der_x, int16_t flow_der_y, uint8_t quality, float size_divergence, float dist)

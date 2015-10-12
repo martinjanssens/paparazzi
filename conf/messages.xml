@@ -2153,6 +2153,7 @@
 
   <message name="FAKE_DIVERGENCE" id="251">
     <field name="divergence"                type="float"/>
+    <field name="divergence_vision"         type="float"/>
     <field name="normalized_thrust"         type="float"/>
     <field name="cov_div"		    type="float"/>
     <field name="pstate" 		    type="float"/>
