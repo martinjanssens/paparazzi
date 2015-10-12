@@ -214,7 +214,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  {
 		  if(vision_message_nr != previous_message_nr) {
 			  div_factor = -0.6f; // magic number
-			  divergence = divergence * * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - * v_ctrl.lp_factor);
+			  divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
 			  printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 			  previous_message_nr = vision_message_nr;
 			  dt = 0.0f;
