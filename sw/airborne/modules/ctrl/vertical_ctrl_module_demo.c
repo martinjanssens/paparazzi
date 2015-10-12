@@ -36,6 +36,8 @@ float dt;
 int vision_message_nr;
 int previous_message_nr;
 
+#define MINIMUM_GAIN 0.2
+
 // used for automated landing:
 //#include "subsystems/navigation/common_flight_plan.h"
 //#include "generated/flight_plan.h"
@@ -268,13 +270,13 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 		  // adapt the gains according to the error in covariance:
 		  float error_cov = v_ctrl.cov_set_point - cov_div;
-		  pstate -= v_ctrl.igain_adaptive * error_cov;//(v_ctrl.igain_adaptive * pstate) * error_cov;
-		  if(pstate < 0.0f) pstate = 0.0f;
+		  pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
+		  if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
 		  // regulate the divergence:
 		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
   		  float err = v_ctrl.setpoint - divergence;
-  		  pused = pstate - v_ctrl.pgain_adaptive * error_cov;//(v_ctrl.pgain_adaptive * pstate) * error_cov; // pused instead of v_ctrl.pgain to avoid problems with interface
-  		  if(pused < 0.0f) pused = 0.0f;
+  		  pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
+  		  if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
   		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 
   		  // histories and cov detection:
