@@ -30,6 +30,9 @@ float divergence_vision;
 float normalized_thrust;
 float cov_div;
 float pstate;
+float dt;
+int vision_message_nr;
+int previous_message_nr;
 
 // used for automated landing:
 //#include "subsystems/navigation/common_flight_plan.h"
@@ -80,7 +83,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_CONTROL_METHOD
-#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 1
+#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 0
 #endif
 
 static abi_event agl_ev; ///< The altitude ABI event
@@ -129,8 +132,10 @@ void vertical_ctrl_module_init(void)
   divergence = 0.0f;
   divergence_vision = 0.0f;
   cov_div = 0.0f;
+  dt = 0.0f;
   pstate = v_ctrl.pgain;
-
+  vision_message_nr = 1;
+  previous_message_nr = 0;
   v_ctrl.agl_lp = 0.0f;
 
   // Subscribe to the altitude above ground level ABI messages
@@ -150,7 +155,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   clock_gettime(CLOCK_REALTIME, &spec);
   long new_time = spec.tv_nsec / 1.0E6;
   long delta_t = new_time - previous_time;
-  float dt = ((float)delta_t) / 1000.0f;
+  dt += ((float)delta_t) / 1000.0f;
   previous_time = new_time;
 
   if (!in_flight) {
@@ -189,7 +194,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
-				  printf("divergence optitrack: %f, divergence vision: %f\n", divergence, divergence_vision);
+				  if(fabs(divergence_vision) > 1E-5)
+					  div_factor = divergence / (divergence_vision/dt);
+				  printf("divergence optitrack: %f, divergence vision: %f, factor = %f\n", divergence, divergence_vision/dt, div_factor);
 				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
@@ -199,12 +206,23 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				  // perform no control with this value (keeping thrust the same)
 				  return;
 			  }
+			  // reset dt:
+			  dt = 0.0f;
 		  }
 	  }
 	  else
 	  {
-		  divergence = divergence_vision;
-		  printf("Vision divergence = %f\n", divergence_vision);
+		  if(vision_message_nr != previous_message_nr) {
+			  div_factor = -30.0f; // magic number
+			  divergence = (divergence_vision * div_factor) / dt;
+			  printf("Vision divergence = %f\n", divergence_vision);
+			  previous_message_nr = vision_message_nr;
+			  dt = 0.0f;
+		  }
+		  else {
+			  printf("Skipping, no new vision input: dt = %f\n", dt);
+			  return;
+		  }
 	  }
 
 	  if(v_ctrl.CONTROL_METHOD == 0) {
@@ -232,7 +250,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
+		  //printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
@@ -316,7 +334,9 @@ static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
 static void vertical_ctrl_optical_flow_cb(uint8_t sender_id, uint32_t stamp, int16_t flow_x, int16_t flow_y, int16_t flow_der_x, int16_t flow_der_y, uint8_t quality, float size_divergence, float dist)
 {
   divergence_vision = size_divergence;
-  printf("Received divergence: %f\n", divergence_vision);
+  vision_message_nr++;
+  if(vision_message_nr > 10) vision_message_nr = 0;
+  //printf("Received divergence: %f\n", divergence_vision);
 }
 
 
@@ -337,7 +357,9 @@ void guidance_v_module_enter(void)
   v_ctrl.agl_lp = 0.0f;
   cov_div = 0.0f;
   normalized_thrust = 0.0f;
-
+  dt = 0.0f;
+  vision_message_nr = 1;
+  previous_message_nr = 0;
   for(i = 0; i < COV_WINDOW_SIZE; i++) {
 	  thrust_history[i] = 0;
 	  divergence_history[i] = 0;
