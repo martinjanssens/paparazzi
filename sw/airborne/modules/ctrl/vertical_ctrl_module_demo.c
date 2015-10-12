@@ -121,7 +121,10 @@ void vertical_ctrl_module_init(void)
   v_ctrl.pgain_adaptive = 0.01;
   v_ctrl.igain_adaptive = 0.001;
 
-  previous_time = time(NULL);
+  struct timespec spec;
+  clock_gettime(CLOCK_REALTIME, &spec);
+  previous_time = spec.tv_nsec / 1.0E6;
+  //previous_time = time(NULL);
 
   // clear histories:
   ind_hist = 0;
@@ -160,7 +163,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   long new_time = spec.tv_nsec / 1.0E6;
   long delta_t = new_time - previous_time;
   dt += ((float)delta_t) / 1000.0f;
-  printf("dt = %f\n", dt);
+  printf("dt = %f vs %f\n", dt, ((float)delta_t) / 1000.0f); // we have negative times...
   previous_time = new_time;
 
   if (!in_flight) {
@@ -366,6 +369,9 @@ void guidance_v_module_enter(void)
   cov_div = 0.0f;
   normalized_thrust = 0.0f;
   dt = 0.0f;
+  struct timespec spec;
+  clock_gettime(CLOCK_REALTIME, &spec);
+  previous_time = spec.tv_nsec / 1.0E6;
   vision_message_nr = 1;
   previous_message_nr = 0;
   for(i = 0; i < COV_WINDOW_SIZE; i++) {
