@@ -136,7 +136,7 @@ void vertical_ctrl_module_init(void)
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
   // Subscribe to the optical flow estimator:
-  AbiBindMsgAGL(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID, &optical_flow_ev, vertical_ctrl_optical_flow_cb);
+  AbiBindMsgOPTICAL_FLOW(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID, &optical_flow_ev, vertical_ctrl_optical_flow_cb);
 
   register_periodic_telemetry(DefaultPeriodic, "FAKE_DIVERGENCE", send_divergence);
 }
@@ -232,7 +232,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, ind_hist);
+		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
@@ -276,23 +276,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   }
 }
 
-float get_cov(float* a, float* b, int n_elements)
-{
-	// determine means for each vector:
-	float mean_a = get_mean(a, n_elements);
-	float mean_b = get_mean(b, n_elements);
-	float cov = 0;
-	for(unsigned int i = 0; i < n_elements; i++)
-	{
-		cov += (a[i] - mean_a) * (b[i] - mean_b);
-	}
-
-	cov /= n_elements;
-
-	return cov;
-}
-
-float get_mean(float *a, int n_elements)
+float get_mean_array(float *a, int n_elements)
 {
 	// determine the mean for the vector:
 	float mean = 0;
@@ -304,6 +288,24 @@ float get_mean(float *a, int n_elements)
 
 	return mean;
 }
+
+float get_cov(float* a, float* b, int n_elements)
+{
+	// determine means for each vector:
+	float mean_a = get_mean_array(a, n_elements);
+	float mean_b = get_mean_array(b, n_elements);
+	float cov = 0;
+	for(unsigned int i = 0; i < n_elements; i++)
+	{
+		cov += (a[i] - mean_a) * (b[i] - mean_b);
+	}
+
+	cov /= n_elements;
+
+	return cov;
+}
+
+
 
 // Reading from "sensors":
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)

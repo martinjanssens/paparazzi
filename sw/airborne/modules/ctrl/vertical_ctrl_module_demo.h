@@ -63,7 +63,7 @@ float divergence_history[COV_WINDOW_SIZE];
 #define GUIDANCE_V_MODE_MODULE_SETTING GUIDANCE_V_MODE_MODULE
 
 float get_cov(float* a, float* b, int n_elements);
-float get_mean(float *a, int n_elements);
+float get_mean_array(float *a, int n_elements);
 
 // Implement own Vertical loops
 extern void guidance_v_module_init(void);
