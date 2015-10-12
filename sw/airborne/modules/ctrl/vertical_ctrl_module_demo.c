@@ -194,9 +194,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  // calculate the fake divergence:
 			  if(v_ctrl.agl_lp > 0.0001f) {
 				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
-				  if(fabs(divergence_vision) > 1E-5)
+				  if(fabs(divergence_vision/dt) > 1E-5)
 					  div_factor = divergence / (divergence_vision/dt);
-				  printf("divergence optitrack: %f, divergence vision: %f, factor = %f\n", divergence, divergence_vision/dt, div_factor);
+				  printf("divergence optitrack: %f, divergence vision: %f, factor = %f, dt = %f\n", divergence, divergence_vision/dt, div_factor, dt);
 				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
 			  }
 			  else
@@ -213,14 +213,14 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  else
 	  {
 		  if(vision_message_nr != previous_message_nr) {
-			  div_factor = -30.0f; // magic number
-			  divergence = (divergence_vision * div_factor) / dt;
-			  printf("Vision divergence = %f\n", divergence_vision);
+			  div_factor = -0.6f; // magic number
+			  divergence = divergence * * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - * v_ctrl.lp_factor);
+			  printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 			  previous_message_nr = vision_message_nr;
 			  dt = 0.0f;
 		  }
 		  else {
-			  printf("Skipping, no new vision input: dt = %f\n", dt);
+			  //printf("Skipping, no new vision input: dt = %f\n", dt);
 			  return;
 		  }
 	  }
