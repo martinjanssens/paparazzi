@@ -120,8 +120,8 @@ void vertical_ctrl_module_init(void)
   v_ctrl.nominal_thrust = 0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
-  v_ctrl.pgain_adaptive = 5.0;
-  v_ctrl.igain_adaptive = 0.010;
+  v_ctrl.pgain_adaptive = 10.0;
+  v_ctrl.igain_adaptive = 0.25;
 
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -196,10 +196,10 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  stabilization_cmd[COMMAND_THRUST] = 0;
 	  ind_hist = 0;
 	  v_ctrl.agl_lp = 0;
-	  cov_div = 0.0f;
+	  cov_div = v_ctrl.cov_set_point;
 	  normalized_thrust = 0.0f;
 	  dt = 0.0f;
-	  divergence = 0.0f;
+	  divergence = v_ctrl.setpoint;
 	  //struct timespec spec;
 	  clock_gettime(CLOCK_REALTIME, &spec);
 	  previous_time = spec.tv_nsec / 1.0E6;
@@ -406,9 +406,9 @@ void guidance_v_module_enter(void)
   v_ctrl.sum_err = 0.0f;
   ind_hist = 0;
   v_ctrl.agl_lp = 0.0f;
-  cov_div = 0.0f;
+  cov_div = v_ctrl.cov_set_point;
   normalized_thrust = 0.0f;
-  divergence = 0.0f;
+  divergence = v_ctrl.setpoint;
   dt = 0.0f;
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
