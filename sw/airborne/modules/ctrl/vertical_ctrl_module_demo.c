@@ -111,17 +111,17 @@ void vertical_ctrl_module_init(void)
   v_ctrl.agl_lp = 0.0f;
   v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 0.0f;
-  v_ctrl.cov_set_point = -0.25f;
+  v_ctrl.cov_set_point = -0.05f;
   v_ctrl.cov_limit = 1.0f;
   v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.640f;
+  v_ctrl.nominal_thrust = 0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
-  v_ctrl.pgain_adaptive = 0.01;
-  v_ctrl.igain_adaptive = 0.001;
+  v_ctrl.pgain_adaptive = 0.1;
+  v_ctrl.igain_adaptive = 0.0075;
 
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -398,7 +398,7 @@ void guidance_v_module_init(void)
 void guidance_v_module_enter(void)
 {
 	int i;
-
+  printf("ENTERING!");
   // reset integrator
   v_ctrl.sum_err = 0.0f;
   ind_hist = 0;
@@ -416,7 +416,6 @@ void guidance_v_module_enter(void)
 	  thrust_history[i] = 0;
 	  divergence_history[i] = 0;
   }
-  printf("ENTERING!");
 }
 
 void guidance_v_module_run(bool_t in_flight)
