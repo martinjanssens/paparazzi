@@ -259,7 +259,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  }
 	  else
 	  {
-		  if(vision_message_nr != previous_message_nr && dt > 1E-5) {
+		  if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
 			  div_factor = -1.28f; // magic number comprising field of view etc.
 			  divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
 			  //printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
@@ -267,6 +267,13 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  dt = 0.0f;
 		  }
 		  else {
+			  divergence = v_ctrl.setpoint;
+			  dt = 0.0f;
+			  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+			  	  thrust_history[i] = 0;
+			  	  divergence_history[i] = 0;
+			    }
+			  ind_hist++;
 			  //printf("Skipping, no new vision input: dt = %f\n", dt);
 			  return;
 		  }
@@ -322,7 +329,13 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
   		  ind_hist++;
   		  //if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-  		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+  		if(ind_hist >= COV_WINDOW_SIZE) {
+  			cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+  		}
+  		else {
+  			cov_div = v_ctrl.cov_set_point;
+  		}
+
 
   		  // landing condition based on pstate (if too low)
   		  /*if(abs(cov_div) > v_ctrl.cov_limit) {
