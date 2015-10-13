@@ -267,13 +267,16 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  dt = 0.0f;
 		  }
 		  else {
-			  divergence = v_ctrl.setpoint;
+			  if(ind_hist <= 1) {
+				  divergence = v_ctrl.setpoint;
+				  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+				    thrust_history[i] = 0;
+				  	divergence_history[i] = 0;
+				  }
+				  ind_hist++;
+			  }
 			  dt = 0.0f;
-			  for(i = 0; i < COV_WINDOW_SIZE; i++) {
-			  	  thrust_history[i] = 0;
-			  	  divergence_history[i] = 0;
-			    }
-			  ind_hist++;
+
 			  //printf("Skipping, no new vision input: dt = %f\n", dt);
 			  return;
 		  }
