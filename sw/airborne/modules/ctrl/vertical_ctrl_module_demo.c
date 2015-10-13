@@ -111,7 +111,7 @@ void vertical_ctrl_module_init(void)
   v_ctrl.agl_lp = 0.0f;
   v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 0.0f;
-  v_ctrl.cov_set_point = -0.05f;
+  v_ctrl.cov_set_point = -0.025f;
   v_ctrl.cov_limit = 1.0f;
   v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
@@ -120,8 +120,8 @@ void vertical_ctrl_module_init(void)
   v_ctrl.nominal_thrust = 0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
-  v_ctrl.pgain_adaptive = 0.1;
-  v_ctrl.igain_adaptive = 0.0075;
+  v_ctrl.pgain_adaptive = 5.0;
+  v_ctrl.igain_adaptive = 0.010;
 
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -295,7 +295,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			  nav_goto_block( 9 );
 		  }
 		  // bound thrust:
-		  Bound(thrust, 0, MAX_PPRZ);
+		  Bound(thrust, nominal_throttle / 2, 0.9*MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
 		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
@@ -305,6 +305,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 		  // adapt the gains according to the error in covariance:
 		  float error_cov = v_ctrl.cov_set_point - cov_div;
+		  // limit the error_cov, which could else become very large:
+		  if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
 		  pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
 		  if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
 		  // regulate the divergence:
@@ -330,7 +332,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  }*/
 
   		  // bound thrust:
-  		  Bound(thrust, 0, MAX_PPRZ);
+  		  //Bound(thrust, 0, MAX_PPRZ);
+  		  Bound(thrust, (6 * nominal_throttle) / 10, 0.9*MAX_PPRZ);
   		  stabilization_cmd[COMMAND_THRUST] = thrust;
   		  v_ctrl.sum_err += err;
   		  printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
