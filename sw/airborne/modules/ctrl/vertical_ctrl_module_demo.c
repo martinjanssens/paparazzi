@@ -83,7 +83,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_VISION_METHOD
-#define VERTICAL_CTRL_MODULE_VISION_METHOD 0
+#define VERTICAL_CTRL_MODULE_VISION_METHOD 1
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_CONTROL_METHOD
@@ -157,15 +157,36 @@ void vertical_ctrl_module_init(void)
 
 void vertical_ctrl_module_run(bool_t in_flight)
 {
+  int i;
   float new_lp;
   float div_factor;
+  if(dt < 0) dt = 0.0f;
   // get delta time, dt, to scale the divergence measurements:
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
   long new_time = spec.tv_nsec / 1.0E6;
   long delta_t = new_time - previous_time;
   dt += ((float)delta_t) / 1000.0f;
-  printf("dt = %f vs %f\n", dt, ((float)delta_t) / 1000.0f); // we have negative times...
+  if(dt > 10.0f) {
+	  printf("WAITED LONGER than 10 seconds\n");
+	  v_ctrl.sum_err = 0;
+	  stabilization_cmd[COMMAND_THRUST] = 0;
+	  ind_hist = 0;
+	  v_ctrl.agl_lp = 0;
+	  cov_div = 0.0f;
+	  divergence = 0.0f;
+	  normalized_thrust = 0.0f;
+	  dt = 0.0f;
+	  vision_message_nr = 1;
+	  previous_message_nr = 0;
+	  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+	   thrust_history[i] = 0;
+	   divergence_history[i] = 0;
+	  }
+	  dt = 0.0f;
+	  return;
+  }
+  //printf("dt = %f vs %f\n", dt, ((float)delta_t) / 1000.0f); // we have negative times...
   previous_time = new_time;
 
   if (!in_flight) {
@@ -175,6 +196,20 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  stabilization_cmd[COMMAND_THRUST] = 0;
 	  ind_hist = 0;
 	  v_ctrl.agl_lp = 0;
+	  cov_div = 0.0f;
+	  normalized_thrust = 0.0f;
+	  dt = 0.0f;
+	  divergence = 0.0f;
+	  //struct timespec spec;
+	  clock_gettime(CLOCK_REALTIME, &spec);
+	  previous_time = spec.tv_nsec / 1.0E6;
+	  vision_message_nr = 1;
+	  previous_message_nr = 0;
+	  for(i = 0; i < COV_WINDOW_SIZE; i++) {
+	   thrust_history[i] = 0;
+	   divergence_history[i] = 0;
+	  }
+	  printf("NOT FLYING!\n");
   } else {
 
 	  if(v_ctrl.VISION_METHOD == 0) {
@@ -224,10 +259,10 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	  }
 	  else
 	  {
-		  if(vision_message_nr != previous_message_nr) {
+		  if(vision_message_nr != previous_message_nr && dt > 1E-5) {
 			  div_factor = -1.28f; // magic number comprising field of view etc.
 			  divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
-			  printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
+			  //printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 			  previous_message_nr = vision_message_nr;
 			  dt = 0.0f;
 		  }
@@ -263,7 +298,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		  Bound(thrust, 0, MAX_PPRZ);
 		  stabilization_cmd[COMMAND_THRUST] = thrust;
 		  v_ctrl.sum_err += err;
-		  //printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
+		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
 	  }
 	  else {
 		  // ADAPTIVE GAIN CONTROL:
@@ -341,7 +376,7 @@ float get_cov(float* a, float* b, int n_elements)
 // Reading from "sensors":
 static void vertical_ctrl_agl_cb(uint8_t sender_id, float distance)
 {
-  printf("distance = %f\n", distance);
+  //printf("distance = %f\n", distance);
   v_ctrl.agl = distance;
 }
 static void vertical_ctrl_optical_flow_cb(uint8_t sender_id, uint32_t stamp, int16_t flow_x, int16_t flow_y, int16_t flow_der_x, int16_t flow_der_y, uint8_t quality, float size_divergence, float dist)
@@ -370,6 +405,7 @@ void guidance_v_module_enter(void)
   v_ctrl.agl_lp = 0.0f;
   cov_div = 0.0f;
   normalized_thrust = 0.0f;
+  divergence = 0.0f;
   dt = 0.0f;
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -380,6 +416,7 @@ void guidance_v_module_enter(void)
 	  thrust_history[i] = 0;
 	  divergence_history[i] = 0;
   }
+  printf("ENTERING!");
 }
 
 void guidance_v_module_run(bool_t in_flight)
