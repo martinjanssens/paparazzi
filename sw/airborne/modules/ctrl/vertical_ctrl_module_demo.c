@@ -178,176 +178,176 @@ void reset_all_vars()
 
 void vertical_ctrl_module_run(bool_t in_flight)
 {
-  int i;
-  float new_lp;
-  float div_factor;
-  if(dt < 0) dt = 0.0f;
-  // get delta time, dt, to scale the divergence measurements:
-  struct timespec spec;
-  clock_gettime(CLOCK_REALTIME, &spec);
-  long new_time = spec.tv_nsec / 1.0E6;
-  long delta_t = new_time - previous_time;
-  dt += ((float)delta_t) / 1000.0f;
-  if(dt > 10.0f) {
-	  printf("WAITED LONGER than 10 seconds\n");
-	  dt = 0.0f;
-	  return;
-  }
-  //printf("dt = %f vs %f\n", dt, ((float)delta_t) / 1000.0f); // we have negative times...
-  previous_time = new_time;
+	int i;
+	float new_lp;
+	float div_factor;
+	if(dt < 0) dt = 0.0f;
+	// get delta time, dt, to scale the divergence measurements:
+	struct timespec spec;
+	clock_gettime(CLOCK_REALTIME, &spec);
+	long new_time = spec.tv_nsec / 1.0E6;
+	long delta_t = new_time - previous_time;
+	dt += ((float)delta_t) / 1000.0f;
+	if(dt > 10.0f) {
+		printf("WAITED LONGER than 10 seconds\n");
+		dt = 0.0f;
+		return;
+	}
+	//printf("dt = %f vs %f\n", dt, ((float)delta_t) / 1000.0f); // we have negative times...
+	previous_time = new_time;
 
-  if (!in_flight) {
-	  // When not flying and in mode module:
-	  // Reset integrators
-	  printf("NOT FLYING!\n");
-	  reset_all_vars();
-  } else {
+	if (!in_flight) {
+		// When not flying and in mode module:
+		// Reset integrators
+		printf("NOT FLYING!\n");
+		reset_all_vars();
+	} else {
 
-	  if(v_ctrl.VISION_METHOD == 0) {
+		if(v_ctrl.VISION_METHOD == 0) {
 
-		  // USE OPTITRACK HEIGHT:
-		  v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
-		  // else we get an immediate jump in divergence when switching on.
-		  if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
-		  	  v_ctrl.agl_lp = v_ctrl.agl;
-		  }
-		  if(abs(v_ctrl.agl-v_ctrl.agl_lp) > 1.0f)
-		  {
-			  printf("Outlier: agl = %f, agl_lp = %f\n", v_ctrl.agl, v_ctrl.agl_lp);
-			  // ignore outliers:
-			  v_ctrl.agl = v_ctrl.agl_lp;
-		  }
-		  // calculate the new low-pass height and the velocity
-		  new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
-
-
-		  if(dt > 0.0001f)
-		  {
-			  v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
-			  v_ctrl.agl_lp = new_lp;
-
-			  // calculate the fake divergence:
-			  if(v_ctrl.agl_lp > 0.0001f) {
-				  divergence = v_ctrl.vel / v_ctrl.agl_lp;
-				  divergence_vision_dt = (divergence_vision/dt);
-				  if(fabs(divergence_vision_dt) > 1E-5) {
-					  div_factor = divergence / divergence_vision_dt;
-				  }
-				  //printf("divergence optitrack: %f, divergence vision: %f, factor = %f, dt = %f\n", divergence, divergence_vision/dt, div_factor, dt);
-				  //printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
-			  }
-			  else
-			  {
-				  divergence = 1000.0f;
-				  //printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
-				  // perform no control with this value (keeping thrust the same)
-				  return;
-			  }
-			  // reset dt:
-			  dt = 0.0f;
-		  }
-	  }
-	  else
-	  {
-		  if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
-			  div_factor = -1.28f; // magic number comprising field of view etc.
-			  divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
-			  //printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
-			  previous_message_nr = vision_message_nr;
-			  dt = 0.0f;
-		  }
-		  else {
-			  if(ind_hist <= 1) {
-				  divergence = v_ctrl.setpoint;
-				  for(i = 0; i < COV_WINDOW_SIZE; i++) {
-				    thrust_history[i] = 0;
-				  	divergence_history[i] = 0;
-				  }
-				  ind_hist++;
-				  dt = 0.0f;
-			  }
-			  //printf("Skipping, no new vision input: dt = %f\n", dt);
-			  return;
-		  }
-	  }
-
-	  if(v_ctrl.CONTROL_METHOD == 0) {
-		  // fixed gain control, cov_limit for landing:
-
-		  // use the divergence for control:
-		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
-		  float err = v_ctrl.setpoint - divergence;
-		  int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
-		  // make sure the p gain is logged:
-		  pstate = v_ctrl.pgain;
-		  pused = pstate;
-		  // histories and cov detection:
-		  normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
-		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
-		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-		  ind_hist++;
-		  //if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-		  cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
-		  if(ind_hist >= COV_WINDOW_SIZE && abs(cov_div) > v_ctrl.cov_limit) {
-			  // set to NAV and give land command:
-			  autopilot_set_mode(AP_MODE_NAV);
-			  nav_goto_block( 9 );
-		  }
-		  // bound thrust:
-		  Bound(thrust, nominal_throttle / 2, 0.9*MAX_PPRZ);
-		  stabilization_cmd[COMMAND_THRUST] = thrust;
-		  v_ctrl.sum_err += err;
-		  printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
-	  }
-	  else {
-		  // ADAPTIVE GAIN CONTROL:
-
-		  // adapt the gains according to the error in covariance:
-		  float error_cov = v_ctrl.cov_set_point - cov_div;
-		  // limit the error_cov, which could else become very large:
-		  if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
-		  pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
-		  if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
-		  // regulate the divergence:
-		  int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
-  		  float err = v_ctrl.setpoint - divergence;
-  		  pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
-  		  if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
-  		  int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
-
-  		  // histories and cov detection:
-  		  normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
-  		  thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
-  		  divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-  		  ind_hist++;
-  		  //if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-  		if(ind_hist >= COV_WINDOW_SIZE) {
-  			cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
-  		}
-  		else {
-  			cov_div = v_ctrl.cov_set_point;
-  		}
+			// USE OPTITRACK HEIGHT:
+			v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
+			// else we get an immediate jump in divergence when switching on.
+			if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
+				v_ctrl.agl_lp = v_ctrl.agl;
+			}
+			if(abs(v_ctrl.agl-v_ctrl.agl_lp) > 1.0f)
+			{
+				printf("Outlier: agl = %f, agl_lp = %f\n", v_ctrl.agl, v_ctrl.agl_lp);
+				// ignore outliers:
+				v_ctrl.agl = v_ctrl.agl_lp;
+			}
+			// calculate the new low-pass height and the velocity
+			new_lp = v_ctrl.agl_lp * v_ctrl.lp_factor + v_ctrl.agl * (1.0f - v_ctrl.lp_factor);
 
 
-  		  // landing condition based on pstate (if too low)
-  		  /*if(abs(cov_div) > v_ctrl.cov_limit) {
+			if(dt > 0.0001f)
+			{
+				v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
+				v_ctrl.agl_lp = new_lp;
+
+				// calculate the fake divergence:
+				if(v_ctrl.agl_lp > 0.0001f) {
+					divergence = v_ctrl.vel / v_ctrl.agl_lp;
+					divergence_vision_dt = (divergence_vision/dt);
+					if(fabs(divergence_vision_dt) > 1E-5) {
+						div_factor = divergence / divergence_vision_dt;
+					}
+					//printf("divergence optitrack: %f, divergence vision: %f, factor = %f, dt = %f\n", divergence, divergence_vision/dt, div_factor, dt);
+					//printf("div = %f, vel = %f, agl_lp = %f\n", divergence, v_ctrl.vel, v_ctrl.agl_lp);
+				}
+				else
+				{
+					divergence = 1000.0f;
+					//printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
+					// perform no control with this value (keeping thrust the same)
+					return;
+				}
+				// reset dt:
+				dt = 0.0f;
+			}
+		}
+		else
+		{
+			if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
+				div_factor = -1.28f; // magic number comprising field of view etc.
+				divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
+				//printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
+				previous_message_nr = vision_message_nr;
+				dt = 0.0f;
+			}
+			else {
+				// after a re-enter, divergence should be equal to the set point:
+				if(ind_hist <= 1) {
+					divergence = v_ctrl.setpoint;
+					for(i = 0; i < COV_WINDOW_SIZE; i++) {
+						thrust_history[i] = 0;
+						divergence_history[i] = 0;
+					}
+					ind_hist++;
+					dt = 0.0f;
+				}
+				// else: do nothing, let dt increment
+				//printf("Skipping, no new vision input: dt = %f\n", dt);
+				return;
+			}
+		}
+
+		if(v_ctrl.CONTROL_METHOD == 0) {
+			// fixed gain control, cov_limit for landing:
+
+			// use the divergence for control:
+			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+			float err = v_ctrl.setpoint - divergence;
+			int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+			// make sure the p gain is logged:
+			pstate = v_ctrl.pgain;
+			pused = pstate;
+			// histories and cov detection:
+			normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
+			thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
+			divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+			ind_hist++;
+			//if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
+			cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+			if(ind_hist >= COV_WINDOW_SIZE && abs(cov_div) > v_ctrl.cov_limit) {
+				// set to NAV and give land command:
+				autopilot_set_mode(AP_MODE_NAV);
+				nav_goto_block( 9 );
+			}
+			// bound thrust:
+			Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+			stabilization_cmd[COMMAND_THRUST] = thrust;
+			v_ctrl.sum_err += err;
+			printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
+		}
+		else {
+			// ADAPTIVE GAIN CONTROL:
+
+			// adapt the gains according to the error in covariance:
+			float error_cov = v_ctrl.cov_set_point - cov_div;
+			// limit the error_cov, which could else become very large:
+			if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
+			pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
+			if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
+			// regulate the divergence:
+			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+			float err = v_ctrl.setpoint - divergence;
+			pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
+			if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
+			int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+
+			// histories and cov detection:
+			normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
+			thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
+			divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+			ind_hist++; // TODO: prevent overflow?
+			// only take covariance into account if there are enough samples in the histories:
+			if(ind_hist >= COV_WINDOW_SIZE) {
+				cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+			}
+			else {
+				cov_div = v_ctrl.cov_set_point;
+			}
+
+
+			// landing condition based on pstate (if too low)
+			/*if(abs(cov_div) > v_ctrl.cov_limit) {
   			  // set to NAV and give land command:
   			  autopilot_set_mode(AP_MODE_NAV);
   			  nav_goto_block( 9 );
   		  }*/
 
-  		  // bound thrust:
-  		  //Bound(thrust, 0, MAX_PPRZ);
-  		  Bound(thrust, (6 * nominal_throttle) / 10, 0.9*MAX_PPRZ);
-  		  stabilization_cmd[COMMAND_THRUST] = thrust;
-  		  v_ctrl.sum_err += err;
-  		  printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
-
-	  }
+			// bound thrust:
+			Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+			stabilization_cmd[COMMAND_THRUST] = thrust;
+			v_ctrl.sum_err += err;
+			printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
+		}
 
 		//printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
 
-  }
+	}
 }
 
 float get_mean_array(float *a, int n_elements)
