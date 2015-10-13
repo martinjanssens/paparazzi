@@ -155,6 +155,27 @@ void vertical_ctrl_module_init(void)
   register_periodic_telemetry(DefaultPeriodic, "FAKE_DIVERGENCE", send_divergence);
 }
 
+void reset_all_vars()
+{
+	v_ctrl.sum_err = 0;
+	stabilization_cmd[COMMAND_THRUST] = 0;
+	ind_hist = 0;
+	v_ctrl.agl_lp = 0;
+	cov_div = v_ctrl.cov_set_point;
+	normalized_thrust = 0.0f;
+	dt = 0.0f;
+	divergence = v_ctrl.setpoint;
+	//struct timespec spec;
+	clock_gettime(CLOCK_REALTIME, &spec);
+	previous_time = spec.tv_nsec / 1.0E6;
+	vision_message_nr = 1;
+	previous_message_nr = 0;
+	for(i = 0; i < COV_WINDOW_SIZE; i++) {
+		thrust_history[i] = 0;
+		divergence_history[i] = 0;
+	}
+}
+
 void vertical_ctrl_module_run(bool_t in_flight)
 {
   int i;
@@ -169,20 +190,6 @@ void vertical_ctrl_module_run(bool_t in_flight)
   dt += ((float)delta_t) / 1000.0f;
   if(dt > 10.0f) {
 	  printf("WAITED LONGER than 10 seconds\n");
-	  v_ctrl.sum_err = 0;
-	  stabilization_cmd[COMMAND_THRUST] = 0;
-	  ind_hist = 0;
-	  v_ctrl.agl_lp = 0;
-	  cov_div = 0.0f;
-	  divergence = 0.0f;
-	  normalized_thrust = 0.0f;
-	  dt = 0.0f;
-	  vision_message_nr = 1;
-	  previous_message_nr = 0;
-	  for(i = 0; i < COV_WINDOW_SIZE; i++) {
-	   thrust_history[i] = 0;
-	   divergence_history[i] = 0;
-	  }
 	  dt = 0.0f;
 	  return;
   }
@@ -190,32 +197,15 @@ void vertical_ctrl_module_run(bool_t in_flight)
   previous_time = new_time;
 
   if (!in_flight) {
-	  // When not flying:
+	  // When not flying and in mode module:
 	  // Reset integrators
-	  v_ctrl.sum_err = 0;
-	  stabilization_cmd[COMMAND_THRUST] = 0;
-	  ind_hist = 0;
-	  v_ctrl.agl_lp = 0;
-	  cov_div = v_ctrl.cov_set_point;
-	  normalized_thrust = 0.0f;
-	  dt = 0.0f;
-	  divergence = v_ctrl.setpoint;
-	  //struct timespec spec;
-	  clock_gettime(CLOCK_REALTIME, &spec);
-	  previous_time = spec.tv_nsec / 1.0E6;
-	  vision_message_nr = 1;
-	  previous_message_nr = 0;
-	  for(i = 0; i < COV_WINDOW_SIZE; i++) {
-	   thrust_history[i] = 0;
-	   divergence_history[i] = 0;
-	  }
 	  printf("NOT FLYING!\n");
+	  reset_all_vars();
   } else {
 
 	  if(v_ctrl.VISION_METHOD == 0) {
 
 		  // USE OPTITRACK HEIGHT:
-		  // printf("z = %f\n", (float) gps.lla_pos.alt);
 		  v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f;
 		  // else we get an immediate jump in divergence when switching on.
 		  if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
@@ -274,9 +264,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				  	divergence_history[i] = 0;
 				  }
 				  ind_hist++;
+				  dt = 0.0f;
 			  }
-			  dt = 0.0f;
-
 			  //printf("Skipping, no new vision input: dt = %f\n", dt);
 			  return;
 		  }
