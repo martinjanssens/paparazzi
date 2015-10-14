@@ -157,6 +157,7 @@ void vertical_ctrl_module_init(void)
 
 void reset_all_vars()
 {
+	int i;
 	v_ctrl.sum_err = 0;
 	stabilization_cmd[COMMAND_THRUST] = 0;
 	ind_hist = 0;
@@ -165,7 +166,7 @@ void reset_all_vars()
 	normalized_thrust = 0.0f;
 	dt = 0.0f;
 	divergence = v_ctrl.setpoint;
-	//struct timespec spec;
+	struct timespec spec;
 	clock_gettime(CLOCK_REALTIME, &spec);
 	previous_time = spec.tv_nsec / 1.0E6;
 	vision_message_nr = 1;
