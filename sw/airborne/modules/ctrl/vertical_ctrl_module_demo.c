@@ -37,7 +37,7 @@ int vision_message_nr;
 int previous_message_nr;
 int landing;
 
-#define MINIMUM_GAIN 0.2
+#define MINIMUM_GAIN 0.1
 
 // used for automated landing:
 //#include "subsystems/navigation/common_flight_plan.h"
@@ -118,7 +118,7 @@ void vertical_ctrl_module_init(void)
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.666f; // 0.640 with small battery
+  v_ctrl.nominal_thrust = 0.710f; //0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
   v_ctrl.pgain_adaptive = 10.0;
@@ -295,7 +295,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 				// use the divergence for control:
 				float err = v_ctrl.setpoint - divergence;
-				int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+				int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 				// make sure the p gain is logged:
 				pstate = v_ctrl.pgain;
 				pused = pstate;
@@ -335,7 +335,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				float err = v_ctrl.setpoint - divergence;
 				pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
 				if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
-				int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+				int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 
 				// histories and cov detection:
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
