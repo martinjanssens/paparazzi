@@ -64,7 +64,7 @@ float divergence_history[COV_WINDOW_SIZE];
 
 float get_cov(float* a, float* b, int n_elements);
 float get_mean_array(float *a, int n_elements);
-void reset_all_vars();
+void reset_all_vars(void);
 
 // Implement own Vertical loops
 extern void guidance_v_module_init(void);

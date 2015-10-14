@@ -35,6 +35,7 @@ float pused;
 float dt;
 int vision_message_nr;
 int previous_message_nr;
+int landing;
 
 #define MINIMUM_GAIN 0.2
 
@@ -147,6 +148,8 @@ void vertical_ctrl_module_init(void)
   previous_message_nr = 0;
   v_ctrl.agl_lp = 0.0f;
 
+  landing = 0;
+
   // Subscribe to the altitude above ground level ABI messages
   AbiBindMsgAGL(VERTICAL_CTRL_MODULE_AGL_ID, &agl_ev, vertical_ctrl_agl_cb);
   // Subscribe to the optical flow estimator:
@@ -175,6 +178,7 @@ void reset_all_vars()
 		thrust_history[i] = 0;
 		divergence_history[i] = 0;
 	}
+	landing = 0;
 }
 
 void vertical_ctrl_module_run(bool_t in_flight)
@@ -204,6 +208,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		reset_all_vars();
 	} else {
 
+		/***********
+		 * VISION
+		 ***********/
 		if(v_ctrl.VISION_METHOD == 0) {
 
 			// USE OPTITRACK HEIGHT:
@@ -212,7 +219,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
 				v_ctrl.agl_lp = v_ctrl.agl;
 			}
-			if(abs(v_ctrl.agl-v_ctrl.agl_lp) > 1.0f)
+			if(fabs(v_ctrl.agl-v_ctrl.agl_lp) > 1.0f)
 			{
 				printf("Outlier: agl = %f, agl_lp = %f\n", v_ctrl.agl, v_ctrl.agl_lp);
 				// ignore outliers:
@@ -267,6 +274,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					}
 					ind_hist++;
 					dt = 0.0f;
+					int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+					stabilization_cmd[COMMAND_THRUST] = nominal_throttle;
+
 				}
 				// else: do nothing, let dt increment
 				//printf("Skipping, no new vision input: dt = %f\n", dt);
@@ -274,78 +284,92 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			}
 		}
 
-		if(v_ctrl.CONTROL_METHOD == 0) {
-			// fixed gain control, cov_limit for landing:
+		/***********
+		* CONTROL
+		***********/
 
-			// use the divergence for control:
-			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
-			float err = v_ctrl.setpoint - divergence;
-			int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
-			// make sure the p gain is logged:
-			pstate = v_ctrl.pgain;
-			pused = pstate;
-			// histories and cov detection:
-			normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
-			thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
-			divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-			ind_hist++;
-			//if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-			cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
-			if(ind_hist >= COV_WINDOW_SIZE && abs(cov_div) > v_ctrl.cov_limit) {
-				// set to NAV and give land command:
-				autopilot_set_mode(AP_MODE_NAV);
-				nav_goto_block( 9 );
-			}
-			// bound thrust:
-			Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
-			stabilization_cmd[COMMAND_THRUST] = thrust;
-			v_ctrl.sum_err += err;
-			printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
-		}
-		else {
-			// ADAPTIVE GAIN CONTROL:
+		int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
+		if(!landing) {
+			if(v_ctrl.CONTROL_METHOD == 0) {
+				// fixed gain control, cov_limit for landing:
 
-			// adapt the gains according to the error in covariance:
-			float error_cov = v_ctrl.cov_set_point - cov_div;
-			// limit the error_cov, which could else become very large:
-			if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
-			pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
-			if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
-			// regulate the divergence:
-			int32_t nominal_throttle = v_ctrl.nominal_thrust * MAX_PPRZ;
-			float err = v_ctrl.setpoint - divergence;
-			pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
-			if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
-			int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
-
-			// histories and cov detection:
-			normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
-			thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
-			divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-			ind_hist++; // TODO: prevent overflow?
-			// only take covariance into account if there are enough samples in the histories:
-			if(ind_hist >= COV_WINDOW_SIZE) {
+				// use the divergence for control:
+				float err = v_ctrl.setpoint - divergence;
+				int32_t thrust = nominal_throttle + v_ctrl.pgain * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+				// make sure the p gain is logged:
+				pstate = v_ctrl.pgain;
+				pused = pstate;
+				// histories and cov detection:
+				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
+				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
+				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+				ind_hist++;
+				//if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
 				cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+				if(ind_hist >= COV_WINDOW_SIZE && fabs(cov_div) > v_ctrl.cov_limit) {
+					// set to NAV and give land command:
+					// autopilot_set_mode(AP_MODE_NAV);
+					// nav_goto_block( 9 );
+					landing = 1;
+					printf("START LANDING!\n");
+					thrust = 0.75 * nominal_throttle;
+				}
+				// bound thrust:
+				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+				stabilization_cmd[COMMAND_THRUST] = thrust;
+				v_ctrl.sum_err += err;
+				printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
 			}
 			else {
-				cov_div = v_ctrl.cov_set_point;
-			}
+				// ADAPTIVE GAIN CONTROL:
+
+				// adapt the gains according to the error in covariance:
+				float error_cov = v_ctrl.cov_set_point - cov_div;
+				// limit the error_cov, which could else become very large:
+				if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
+				pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
+				if(pstate < MINIMUM_GAIN) pstate = MINIMUM_GAIN;
+				// regulate the divergence:
+				float err = v_ctrl.setpoint - divergence;
+				pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
+				if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
+				int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ;// + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
+
+				// histories and cov detection:
+				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
+				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
+				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+				ind_hist++; // TODO: prevent overflow?
+				// only take covariance into account if there are enough samples in the histories:
+				if(ind_hist >= COV_WINDOW_SIZE) {
+					cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+				}
+				else {
+					cov_div = v_ctrl.cov_set_point;
+				}
 
 
-			// landing condition based on pstate (if too low)
-			/*if(abs(cov_div) > v_ctrl.cov_limit) {
+				// landing condition based on pstate (if too low)
+				/*if(abs(cov_div) > v_ctrl.cov_limit) {
   			  // set to NAV and give land command:
   			  autopilot_set_mode(AP_MODE_NAV);
   			  nav_goto_block( 9 );
   		  }*/
 
-			// bound thrust:
+				// bound thrust:
+				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+				stabilization_cmd[COMMAND_THRUST] = thrust;
+				v_ctrl.sum_err += err;
+				printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
+			}
+		}
+		else
+		{
+			printf("Landing!!\n");
+			int32_t thrust = 0.90 * nominal_throttle;
 			Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
 			stabilization_cmd[COMMAND_THRUST] = thrust;
-			v_ctrl.sum_err += err;
-			printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
 		}
-
 		//printf("agl = %f, agl_lp = %f, vel = %f, divergence = %f, dt = %f.\n",  v_ctrl.agl, v_ctrl.agl_lp, v_ctrl.vel, divergence, (float) dt);
 
 	}
@@ -410,6 +434,7 @@ void guidance_v_module_enter(void)
   printf("ENTERING!");
   // reset integrator
   v_ctrl.sum_err = 0.0f;
+  landing = 0;
   ind_hist = 0;
   v_ctrl.agl_lp = 0.0f;
   cov_div = v_ctrl.cov_set_point;
