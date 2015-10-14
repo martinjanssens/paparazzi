@@ -299,6 +299,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				// make sure the p gain is logged:
 				pstate = v_ctrl.pgain;
 				pused = pstate;
+				// bound thrust:
+				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+
 				// histories and cov detection:
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
@@ -314,8 +317,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					printf("START LANDING!\n");
 					thrust = 0.75 * nominal_throttle;
 				}
-				// bound thrust:
-				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+
 				stabilization_cmd[COMMAND_THRUST] = thrust;
 				v_ctrl.sum_err += err;
 				printf("Err = %f, thrust = %f, div = %f, cov = %f, ind_hist = %d\n", err, normalized_thrust, divergence, cov_div, (int) ind_hist);
