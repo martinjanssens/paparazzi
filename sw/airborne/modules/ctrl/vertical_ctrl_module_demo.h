@@ -58,6 +58,7 @@ float divergence_history[COV_WINDOW_SIZE];
 
 // for example use the standard horizontal (hover) mode
 #define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_HOVER
+// #define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_ATTITUDE
 
 // and own guidance_v
 #define GUIDANCE_V_MODE_MODULE_SETTING GUIDANCE_V_MODE_MODULE

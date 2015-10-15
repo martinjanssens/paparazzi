@@ -52,7 +52,7 @@ int landing;
 long previous_time;
 
  static void send_divergence(void) {
-  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &divergence_vision_dt, &normalized_thrust, &cov_div, &pstate, &pused);
+  DOWNLINK_SEND_FAKE_DIVERGENCE (DefaultChannel, DefaultDevice, &divergence, &divergence_vision_dt, &normalized_thrust, &cov_div, &pstate, &pused, &(v_ctrl.agl));
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"

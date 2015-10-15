@@ -2158,6 +2158,7 @@
     <field name="cov_div"		    type="float"/>
     <field name="pstate" 		    type="float"/>
     <field name="pused" 		    type="float"/>
+    <field name="sonar" 		    type="float"/>
   </message>
   <!-- 252 is free -->
 
