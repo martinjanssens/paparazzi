@@ -36,6 +36,8 @@ float dt;
 int vision_message_nr;
 int previous_message_nr;
 int landing;
+float previous_err;
+float previous_cov_err;
 
 #define MINIMUM_GAIN 0.1
 
@@ -83,6 +85,10 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #define VERTICAL_CTRL_MODULE_IGAIN 0.0
 #endif
 
+#ifndef VERTICAL_CTRL_MODULE_DGAIN
+#define VERTICAL_CTRL_MODULE_DGAIN 0.0
+#endif
+
 #ifndef VERTICAL_CTRL_MODULE_VISION_METHOD
 #define VERTICAL_CTRL_MODULE_VISION_METHOD 1
 #endif
@@ -117,12 +123,14 @@ void vertical_ctrl_module_init(void)
   v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
+  v_ctrl.dgain = VERTICAL_CTRL_MODULE_DGAIN;
   v_ctrl.sum_err = 0.0f;
   v_ctrl.nominal_thrust = 0.710f; //0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
   v_ctrl.pgain_adaptive = 10.0;
   v_ctrl.igain_adaptive = 0.25;
+  v_ctrl.dgain_adaptive = 0.00;
 
   struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
@@ -136,6 +144,8 @@ void vertical_ctrl_module_init(void)
 	  divergence_history[i] = 0;
   }
 
+  previous_err = 0.0f;
+  previous_cov_err = 0.0f;
   normalized_thrust = 0.0f;
   divergence = 0.0f;
   divergence_vision = 0.0f;
@@ -168,6 +178,8 @@ void reset_all_vars()
 	cov_div = v_ctrl.cov_set_point;
 	normalized_thrust = 0.0f;
 	dt = 0.0f;
+	previous_err = 0.0f;
+	previous_cov_err = 0.0f;
 	divergence = v_ctrl.setpoint;
 	struct timespec spec;
 	clock_gettime(CLOCK_REALTIME, &spec);
@@ -259,7 +271,15 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		{
 			if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
 				div_factor = -1.28f; // magic number comprising field of view etc.
-				divergence = divergence * v_ctrl.lp_factor + ((divergence_vision * div_factor) / dt) * (1.0f - v_ctrl.lp_factor);
+				float new_divergence = (divergence_vision * div_factor) / dt;
+				// deal with outliers:
+				if(fabs(new_divergence - divergence) > 0.20) {
+					printf("OUTLIER: div = %f", new_divergence);
+					if(new_divergence < divergence) new_divergence = divergence - 0.10f;
+					else new_divergence = divergence + 0.10f;
+					printf("corrected to div = %f\n", new_divergence);
+				}
+				divergence = divergence * v_ctrl.lp_factor + (new_divergence * (1.0f - v_ctrl.lp_factor));
 				//printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 				previous_message_nr = vision_message_nr;
 				dt = 0.0f;
@@ -300,7 +320,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				pstate = v_ctrl.pgain;
 				pused = pstate;
 				// bound thrust:
-				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+				Bound(thrust, 0.8*nominal_throttle, 0.75*MAX_PPRZ); // used to be 0.6 / 0.9
 
 				// histories and cov detection:
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
@@ -359,7 +379,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
   		  }*/
 
 				// bound thrust:
-				Bound(thrust, 0.6*nominal_throttle, 0.9*MAX_PPRZ);
+				Bound(thrust, 0.8*nominal_throttle, 0.75*MAX_PPRZ); // was 0.6 0.9
 				stabilization_cmd[COMMAND_THRUST] = thrust;
 				v_ctrl.sum_err += err;
 				printf("Err cov = %f, cov = %f, thrust = %f, err div = %f, pstate = %f, pused = %f\n", error_cov, cov_div, normalized_thrust, err, pstate, pused);
@@ -438,6 +458,8 @@ void guidance_v_module_enter(void)
   v_ctrl.sum_err = 0.0f;
   landing = 0;
   ind_hist = 0;
+  previous_err = 0.0f;
+  previous_cov_err = 0.0f;
   v_ctrl.agl_lp = 0.0f;
   cov_div = v_ctrl.cov_set_point;
   normalized_thrust = 0.0f;

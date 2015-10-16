@@ -28,7 +28,8 @@
 #ifndef VERTICAL_CTRL_MODULE_DEMO_H_
 #define VERTICAL_CTRL_MODULE_DEMO_H_
 
-#define COV_WINDOW_SIZE 15
+#define COV_WINDOW_SIZE 30
+//15
 
 #include "std.h"
 
@@ -40,6 +41,7 @@ struct VerticalCtrlDemo {
   float setpoint;
   float pgain;
   float igain;
+  float dgain;
   float sum_err;
   float nominal_thrust;
   int VISION_METHOD;
@@ -48,6 +50,7 @@ struct VerticalCtrlDemo {
   float cov_limit;
   float pgain_adaptive;
   float igain_adaptive;
+  float dgain_adaptive;
 };
 
 extern struct VerticalCtrlDemo v_ctrl;
@@ -56,9 +59,9 @@ unsigned long ind_hist;
 float thrust_history[COV_WINDOW_SIZE];
 float divergence_history[COV_WINDOW_SIZE];
 
-// for example use the standard horizontal (hover) mode
-#define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_HOVER
-// #define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_ATTITUDE
+// for example use the standard horizontal (hover) mode // GUIDANCE_H_MODE_ATTITUDE // GUIDANCE_H_MODE_HOVER
+#define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_ATTITUDE
+
 
 // and own guidance_v
 #define GUIDANCE_V_MODE_MODULE_SETTING GUIDANCE_V_MODE_MODULE
