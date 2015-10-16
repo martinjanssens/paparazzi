@@ -24,6 +24,7 @@
     <subsystem name="stabilization" type="indi"/>
     <subsystem name="ahrs" type="int_cmpl_quat"/>
     <subsystem name="ins" type="extended"/>
+    <!-- <subsystem name="guidance" type="indi"/> -->
   </firmware>
 
   <modules main_freq="512">
