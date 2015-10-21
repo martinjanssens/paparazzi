@@ -97,6 +97,10 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #define VERTICAL_CTRL_MODULE_CONTROL_METHOD 0
 #endif
 
+#ifndef VERTICAL_CTRL_MODULE_COV_METHOD
+#define VERTICAL_CTRL_MODULE_COV_METHOD 1
+#endif
+
 static abi_event agl_ev; ///< The altitude ABI event
 static abi_event optical_flow_ev;
 
@@ -128,6 +132,8 @@ void vertical_ctrl_module_init(void)
   v_ctrl.nominal_thrust = 0.710f; //0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
+  v_ctrl.COV_METHOD = VERTICAL_CTRL_MODULE_COV_METHOD;
+  v_ctrl.delay_steps = 10;
   v_ctrl.pgain_adaptive = 10.0;
   v_ctrl.igain_adaptive = 0.25;
   v_ctrl.dgain_adaptive = 0.00;
@@ -280,7 +286,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					printf("corrected to div = %f\n", new_divergence);
 				}
 				divergence = divergence * v_ctrl.lp_factor + (new_divergence * (1.0f - v_ctrl.lp_factor));
-				//printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
+				printf("Vision divergence = %f, dt = %f\n", divergence_vision, dt);
 				previous_message_nr = vision_message_nr;
 				dt = 0.0f;
 			}
@@ -299,7 +305,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 				}
 				// else: do nothing, let dt increment
-				//printf("Skipping, no new vision input: dt = %f\n", dt);
+				printf("Skipping, no new vision input: dt = %f\n", dt);
 				return;
 			}
 		}
@@ -326,9 +332,19 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
 				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+				int ind_past = ind_hist - v_ctrl.delay_steps;
+				while(ind_past < 0) ind_past += COV_WINDOW_SIZE;
+				float past_divergence = divergence_history[ind_past];
+				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = past_divergence;
 				ind_hist++;
 				//if(ind_hist >= COV_WINDOW_SIZE) ind_hist = 0; // prevent overflow
-				cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+				if(v_ctrl.COV_METHOD == 0) {
+					cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+				}
+				else {
+					cov_div = get_cov(past_divergence_history, divergence_history, COV_WINDOW_SIZE);
+				}
+
 				if(ind_hist >= COV_WINDOW_SIZE && fabs(cov_div) > v_ctrl.cov_limit) {
 					// set to NAV and give land command:
 					// autopilot_set_mode(AP_MODE_NAV);
@@ -355,21 +371,33 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				float err = v_ctrl.setpoint - divergence;
 				pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
 				if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
+				if(v_ctrl.COV_METHOD == 0 && error_cov > 0.25) {
+					// Emergency measure:
+					pused = 0.5 * pused;
+				}
 				int32_t thrust = nominal_throttle + pused * err * MAX_PPRZ + v_ctrl.igain * v_ctrl.sum_err * MAX_PPRZ; // still with i-gain (should be determined with 0-divergence maneuver)
 
 				// histories and cov detection:
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
 				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
+				int ind_past = ind_hist - v_ctrl.delay_steps;
+				while(ind_past < 0) ind_past += COV_WINDOW_SIZE;
+				float past_divergence = divergence_history[ind_past];
+				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = past_divergence;
 				ind_hist++; // TODO: prevent overflow?
 				// only take covariance into account if there are enough samples in the histories:
 				if(ind_hist >= COV_WINDOW_SIZE) {
-					cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+					if(v_ctrl.COV_METHOD == 0) {
+						cov_div = get_cov(thrust_history, divergence_history, COV_WINDOW_SIZE);
+					}
+					else {
+						cov_div = get_cov(past_divergence_history, divergence_history, COV_WINDOW_SIZE);
+					}
 				}
 				else {
 					cov_div = v_ctrl.cov_set_point;
 				}
-
 
 				// landing condition based on pstate (if too low)
 				/*if(abs(cov_div) > v_ctrl.cov_limit) {

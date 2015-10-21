@@ -14,6 +14,7 @@
       <define name="DGAIN" value="0.00" description="D gain on summed height error"/>
       <define name="VISION_METHOD" value="1" description="0 = fake vision, 1 = real vision"/>
       <define name="CONTROL_METHOD" value="1" description="0 = fixed gain control, 1 = adaptive gain control"/>
+      <define name="COV_METHOD" value="1" description="0 = cov(uz, div), 1 = cov(div_past, div)"/>
     </section>
   </doc>
   <settings>
@@ -29,6 +30,8 @@
         <dl_setting var="v_ctrl.dgain" min="0" step="0.001" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="dgain" param="VERTICAL_CTRL_MODULE_DGAIN"/>
 	<dl_setting var="v_ctrl.VISION_METHOD" min="0" step="1" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="VISION_METHOD" param="VERTICAL_CTRL_MODULE_VISION_METHOD"/>
 	<dl_setting var="v_ctrl.CONTROL_METHOD" min="0" step="1" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="CONTROL_METHOD" param="VERTICAL_CTRL_MODULE_CONTROL_METHOD"/>
+	<dl_setting var="v_ctrl.COV_METHOD" min="0" step="1" max="1" module="ctrl/vertical_ctrl_module_demo" shortname="COV_METHOD" param="VERTICAL_CTRL_MODULE_COV_METHOD"/>
+	<dl_setting var="v_ctrl.delay_steps" min="0" step="1" max="30" module="ctrl/vertical_ctrl_module_demo" shortname="delay_steps"/>
         <dl_setting var="v_ctrl.pgain_adaptive" min="0" step="0.1" max="20.0" module="ctrl/vertical_ctrl_module_demo" shortname="pgain_adaptive"/>
         <dl_setting var="v_ctrl.igain_adaptive" min="0" step="0.001" max="0.5" module="ctrl/vertical_ctrl_module_demo" shortname="igain_adaptive"/>
         <dl_setting var="v_ctrl.dgain_adaptive" min="0" step="0.001" max="0.5" module="ctrl/vertical_ctrl_module_demo" shortname="dgain_adaptive"/>
