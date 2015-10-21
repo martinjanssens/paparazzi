@@ -123,7 +123,7 @@ void vertical_ctrl_module_init(void)
   v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 0.0f;
   v_ctrl.cov_set_point = -0.025f;
-  v_ctrl.cov_limit = 1.0f;
+  v_ctrl.cov_limit = 0.0010f; //1.0f; // for cov(uz,div)
   v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
@@ -133,7 +133,7 @@ void vertical_ctrl_module_init(void)
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
   v_ctrl.COV_METHOD = VERTICAL_CTRL_MODULE_COV_METHOD;
-  v_ctrl.delay_steps = 10;
+  v_ctrl.delay_steps = 40;
   v_ctrl.pgain_adaptive = 10.0;
   v_ctrl.igain_adaptive = 0.25;
   v_ctrl.dgain_adaptive = 0.00;
@@ -352,7 +352,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					// nav_goto_block( 9 );
 					landing = 1;
 					printf("START LANDING!\n");
-					thrust = 0.75 * nominal_throttle;
+					thrust = 0.80 * nominal_throttle;
 				}
 
 				stabilization_cmd[COMMAND_THRUST] = thrust;
@@ -372,7 +372,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				float err = v_ctrl.setpoint - divergence;
 				pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
 				if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
-				if(v_ctrl.COV_METHOD == 0 && error_cov > 0.25) {
+				if(v_ctrl.COV_METHOD == 0 && error_cov > 0.005) {
 					// Emergency measure:
 					pused = 0.5 * pused;
 				}
