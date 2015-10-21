@@ -28,8 +28,9 @@
 #ifndef VERTICAL_CTRL_MODULE_DEMO_H_
 #define VERTICAL_CTRL_MODULE_DEMO_H_
 
-#define COV_WINDOW_SIZE 30
-//15
+#define COV_WINDOW_SIZE 60
+// 30
+// 15
 
 #include "std.h"
 

@@ -305,7 +305,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 				}
 				// else: do nothing, let dt increment
-				printf("Skipping, no new vision input: dt = %f\n", dt);
+				//printf("Skipping, no new vision input: dt = %f\n", dt);
 				return;
 			}
 		}
@@ -332,7 +332,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
 				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-				int ind_past = ind_hist - v_ctrl.delay_steps;
+				int ind_past = (ind_hist%COV_WINDOW_SIZE) - v_ctrl.delay_steps;
 				while(ind_past < 0) ind_past += COV_WINDOW_SIZE;
 				float past_divergence = divergence_history[ind_past];
 				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = past_divergence;
@@ -343,6 +343,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				}
 				else {
 					cov_div = get_cov(past_divergence_history, divergence_history, COV_WINDOW_SIZE);
+					printf("ind_past = %d, past_divergence = %f, cov_div = %f\n", ind_past, past_divergence, cov_div);
 				}
 
 				if(ind_hist >= COV_WINDOW_SIZE && fabs(cov_div) > v_ctrl.cov_limit) {
@@ -381,7 +382,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				normalized_thrust = (float)(thrust / (MAX_PPRZ / 100));
 				thrust_history[ind_hist%COV_WINDOW_SIZE] = normalized_thrust;
 				divergence_history[ind_hist%COV_WINDOW_SIZE] = divergence;
-				int ind_past = ind_hist - v_ctrl.delay_steps;
+				int ind_past = (ind_hist%COV_WINDOW_SIZE) - v_ctrl.delay_steps;
 				while(ind_past < 0) ind_past += COV_WINDOW_SIZE;
 				float past_divergence = divergence_history[ind_past];
 				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = past_divergence;
