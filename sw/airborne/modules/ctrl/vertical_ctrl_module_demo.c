@@ -98,7 +98,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_COV_METHOD
-#define VERTICAL_CTRL_MODULE_COV_METHOD 1
+#define VERTICAL_CTRL_MODULE_COV_METHOD 0
 #endif
 
 static abi_event agl_ev; ///< The altitude ABI event
@@ -372,7 +372,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				float err = v_ctrl.setpoint - divergence;
 				pused = pstate - (v_ctrl.pgain_adaptive * pstate) * error_cov; // v_ctrl.pgain_adaptive * error_cov;//// pused instead of v_ctrl.pgain to avoid problems with interface
 				if(pused < MINIMUM_GAIN) pused = MINIMUM_GAIN;
-				if(v_ctrl.COV_METHOD == 0 && error_cov > 0.005) {
+				if(v_ctrl.COV_METHOD == 1 && error_cov > 0.001) {
 					// Emergency measure:
 					pused = 0.5 * pused;
 				}
@@ -385,7 +385,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 				int ind_past = (ind_hist%COV_WINDOW_SIZE) - v_ctrl.delay_steps;
 				while(ind_past < 0) ind_past += COV_WINDOW_SIZE;
 				float past_divergence = divergence_history[ind_past];
-				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = past_divergence;
+				past_divergence_history[ind_hist%COV_WINDOW_SIZE] = 100.0f * past_divergence;
 				ind_hist++; // TODO: prevent overflow?
 				// only take covariance into account if there are enough samples in the histories:
 				if(ind_hist >= COV_WINDOW_SIZE) {
@@ -394,9 +394,11 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					}
 					else {
 						cov_div = get_cov(past_divergence_history, divergence_history, COV_WINDOW_SIZE);
+						printf("Cov_div = %f\n", cov_div);
 					}
 				}
 				else {
+					printf("cov_div not enough history\n");
 					cov_div = v_ctrl.cov_set_point;
 				}
 
