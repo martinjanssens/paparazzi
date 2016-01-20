@@ -30,6 +30,7 @@
 
 #include "std.h"
 #include "math/pprz_geodetic_int.h"
+#include "math/pprz_geodetic_float.h"
 
 #include "mcu_periph/sys_time.h"
 
@@ -53,6 +54,14 @@
 #define GPS_NB_CHANNELS 1
 #endif
 
+#define GPS_VALID_POS_ECEF_BIT 0
+#define GPS_VALID_POS_LLA_BIT  1
+#define GPS_VALID_POS_UTM_BIT  2
+#define GPS_VALID_VEL_ECEF_BIT 3
+#define GPS_VALID_VEL_NED_BIT  4
+#define GPS_VALID_HMSL_BIT     5
+#define GPS_VALID_COURSE_BIT   6
+
 /** data structure for Space Vehicle Information of a single satellite */
 struct SVinfo {
   uint8_t svid;  ///< Satellite ID
@@ -65,6 +74,8 @@ struct SVinfo {
 
 /** data structure for GPS information */
 struct GpsState {
+  uint8_t valid_fields;          ///< bitfield indicating valid fields (GPS_VALID_x_BIT)
+
   struct EcefCoor_i ecef_pos;    ///< position in ECEF in cm
   struct LlaCoor_i lla_pos;      ///< position in LLA (lat,lon: deg*1e7; alt: mm over ellipsoid)
   struct UtmCoor_i utm_pos;      ///< position in UTM (north,east: cm; alt: mm over ellipsoid)
@@ -151,5 +162,23 @@ extern struct GpsTimeSync gps_time_sync;
  * @return GPS tow in ms
  */
 extern uint32_t gps_tow_from_sys_ticks(uint32_t sys_ticks);
+
+/**
+ * Convenience function to get utm position in float from GPS structure.
+ * Beware that altitude is initialized to zero but not set to the correct value
+ * @param[in] gps pointer to the gps structure
+ * @param[in] zone set the utm zone in which the position should be computed, 0 to try to get it automatically from lla position
+ * @return utm position in float
+ */
+extern struct UtmCoor_f utm_float_from_gps(struct GpsState *gps, uint8_t zone);
+
+/**
+ * Convenience function to get utm position in int from GPS structure.
+ * Beware that altitude is initialized to zero but not set to the correct value
+ * @param[in] gps pointer to the gps structure
+ * @param[in] zone set the utm zone in which the position should be computed, 0 to try to get it automatically from lla position
+ * @return utm position in fixed point (cm)
+ */
+extern struct UtmCoor_i utm_int_from_gps(struct GpsState *gps_s, uint8_t zone);
 
 #endif /* GPS_H */
