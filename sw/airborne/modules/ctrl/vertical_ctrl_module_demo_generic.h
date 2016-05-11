@@ -54,6 +54,7 @@ struct VerticalCtrlDemo {
   float dgain_adaptive;
   int COV_METHOD;
   int delay_steps;
+  int OPTICAL_FLOW_TYPE;
 };
 
 extern struct VerticalCtrlDemo v_ctrl;
@@ -61,8 +62,8 @@ extern struct VerticalCtrlDemo v_ctrl;
 
 unsigned long ind_hist;
 float thrust_history[COV_WINDOW_SIZE];
-float divergence_history[COV_WINDOW_SIZE];
-float past_divergence_history[COV_WINDOW_SIZE];
+float opticalflow_history[COV_WINDOW_SIZE];
+float past_opticalflow_history[COV_WINDOW_SIZE];
 
 // for example use the standard horizontal (hover) mode // GUIDANCE_H_MODE_ATTITUDE // GUIDANCE_H_MODE_HOVER
 #define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_HOVER

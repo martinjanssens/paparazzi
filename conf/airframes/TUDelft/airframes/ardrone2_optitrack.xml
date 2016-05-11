@@ -27,10 +27,15 @@
     <!-- <subsystem name="guidance" type="indi"/> -->
   </firmware>
 
+  <!-- Modules -->
   <modules main_freq="512">
     <load name="bat_voltage_ardrone2.xml"/>
+    <load name="video_thread.xml">
+        <define name="VIDEO_THREAD_CAMERA" value="front_camera"/>
+    </load>
     <load name="cv_opticflow.xml"/>
-    <load name="vertical_ctrl_module_demo.xml"/>
+    <load name="vertical_ctrl_module_demo_generic.xml"/>
+    
   </modules>
 
   <commands>
@@ -186,13 +191,31 @@
     <define name="REF_ZETA_R" value="0.9"/>
     <define name="REF_MAX_R" value="600." unit="deg/s"/>
     <define name="REF_MAX_RDOT" value="RadOfDeg(8000.)"/>
+
+    <!-- feedback -->
+    <define name="PHI_PGAIN" value="850"/>
+    <define name="PHI_DGAIN" value="425"/>
+    <define name="PHI_IGAIN" value="0"/>
+
+    <define name="THETA_PGAIN" value="850"/>
+    <define name="THETA_DGAIN" value="425"/>
+    <define name="THETA_IGAIN" value="0"/>
+
+    <define name="PSI_PGAIN" value="1000"/>
+    <define name="PSI_DGAIN" value="700"/>
+    <define name="PSI_IGAIN" value="0"/>
+
+    <!-- feedforward -->
+    <define name="PHI_DDGAIN" value="0"/>
+    <define name="THETA_DDGAIN" value="0"/>
+    <define name="PSI_DDGAIN" value="100"/>
   </section>
 
   <section name="GUIDANCE_V" prefix="GUIDANCE_V_">
     <define name="HOVER_KP" value="583"/>
     <define name="HOVER_KD" value="82"/>
     <define name="HOVER_KI" value="13"/>
-    <define name="NOMINAL_HOVER_THROTTLE" value="0.645"/>
+    <define name="NOMINAL_HOVER_THROTTLE" value="0.645"/> <!-- CHANGE!! -->
     <define name="ADAPT_THROTTLE_ENABLED" value="false"/>
   </section>
 

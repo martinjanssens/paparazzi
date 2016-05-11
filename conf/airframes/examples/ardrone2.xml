@@ -33,11 +33,9 @@
     <load name="geo_mag.xml"/>
     <load name="vertical_ctrl_module_demo.xml"/>
     <!--load name="logger_file.xml"/-->
-    <!--
     <load name="video_thread.xml">
         <define name="VIDEO_THREAD_CAMERA" value="front_camera"/>
     </load>
-    -->
     <!--load name="video_rtp_stream.xml"/-->
   </modules>
 
@@ -101,13 +99,13 @@
   <section name="AHRS" prefix="AHRS_">
     <!-- values used if no GPS fix, on 3D fix is update by geo_mag module -->
     <!-- Toulouse -->
-    <define name="H_X" value="0.513081"/>
+    <!--<define name="H_X" value="0.513081"/>
     <define name="H_Y" value="-0.00242783"/>
-    <define name="H_Z" value="0.858336"/>
+    <define name="H_Z" value="0.858336"/> -->
     <!-- Delft -->
-    <!--define name="H_X" value="0.3892503"/>
+    <define name="H_X" value="0.3892503"/>
     <define name="H_Y" value="0.0017972"/>
-    <define name="H_Z" value="0.9211303"/ -->
+    <define name="H_Z" value="0.9211303"/>
   </section>
 
   <section name="INS" prefix="INS_">
