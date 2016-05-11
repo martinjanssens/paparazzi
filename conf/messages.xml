@@ -2159,8 +2159,20 @@
     <field name="pstate" 		    type="float"/>
     <field name="pused" 		    type="float"/>
     <field name="sonar" 		    type="float"/>
+    <!--field name="sonar" 		    type="float"/>-->
   </message>
-  <!-- 252 is free -->
+  
+  <message name="FAKE_OPTICAL_FLOW" id="252">
+    <field name="opticalflow"                type="float"/>
+    <field name="opticalflow_vision"         type="float"/>
+    <field name="normalized_thrust"         type="float"/>
+    <field name="cov_opticalflow"	    type="float"/>
+    <field name="pstate" 		    type="float"/>
+    <field name="pused" 		    type="float"/>
+    <field name="sonar" 		    type="float"/>
+    <field name="x_pos" 		    type="float"/>
+    <!--field name="sonar" 		    type="float"/>-->
+  </message>
 
   <message name="I2C_ERRORS" id="253">
     <field name="wd_reset_cnt"                type="uint16"/>
