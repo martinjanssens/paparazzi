@@ -53,6 +53,7 @@ struct opticflow_result_t {
 struct opticflow_state_t {
   float phi;      ///< roll [rad]
   float theta;    ///< pitch [rad]
+  float psi;      ///< yaw [rad]
   float agl;      ///< height above ground [m]
 };
 

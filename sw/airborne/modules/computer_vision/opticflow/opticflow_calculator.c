@@ -132,6 +132,7 @@ void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h)
   opticflow->got_first_img = FALSE;
   opticflow->prev_phi = 0.0;
   opticflow->prev_theta = 0.0;
+  opticflow->prev_psi = 0.0;
 
   /* Set the default values */
   opticflow->max_track_corners = OPTICFLOW_MAX_TRACK_CORNERS;
@@ -268,11 +269,11 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
   }
 
   // Flow Derotation
-  float diff_flow_x = (state->phi - opticflow->prev_phi) * img->w / OPTICFLOW_FOV_W;
+  float diff_flow_x = (state->psi - opticflow->prev_psi) * img->w / OPTICFLOW_FOV_W;
   float diff_flow_y = (state->theta - opticflow->prev_theta) * img->h / OPTICFLOW_FOV_H;
   result->flow_der_x = result->flow_x - diff_flow_x * opticflow->subpixel_factor;
   result->flow_der_y = result->flow_y - diff_flow_y * opticflow->subpixel_factor;
-  opticflow->prev_phi = state->phi;
+  opticflow->prev_psi = state->psi;
   opticflow->prev_theta = state->theta;
 
   // Velocity calculation

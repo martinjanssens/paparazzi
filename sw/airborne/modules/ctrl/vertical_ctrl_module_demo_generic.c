@@ -57,7 +57,7 @@ long previous_time;
 
 // This is the message including the variables I get to see in the plotter. Despite the crappy name, this still works with translational flow, but you need to include the x-distance in it once you have made it available in this program!
 static void send_opticalflow(void) {
-  DOWNLINK_SEND_FAKE_OPTICAL_FLOW (DefaultChannel, DefaultDevice, &opticalflow, &opticalflow_vision_dt, &normalized_thrust, &cov_opticalflow, &pstate, &pused, &(v_ctrl.agl), &x_pos);
+  DOWNLINK_SEND_FAKE_OPTICAL_FLOW (DefaultChannel, DefaultDevice, &opticalflow_vision, &opticalflow_vision_dt, &normalized_thrust, &cov_opticalflow, &pstate, &pused, &(v_ctrl.agl), &x_pos);
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"
@@ -72,19 +72,19 @@ static void send_opticalflow(void) {
 #ifndef VERTICAL_CTRL_MODULE_AGL_ID
 #define VERTICAL_CTRL_MODULE_AGL_ID ABI_BROADCAST
 #endif
-PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_AGL_ID)
+//PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_AGL_ID)
 
 /* Use optical flow estimates */
 #ifndef VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID
 #define VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID ABI_BROADCAST
 #endif
-PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
+//PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 
 /* Same for gps coordinates for x-estimation */
 #ifndef VERTICAL_CTRL_MODULE_GPS_ID
 #define VERTICAL_CTRL_MODULE_GPS_ID ABI_BROADCAST
 #endif
-PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
+//PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 
 
 #ifndef VERTICAL_CTRL_MODULE_PGAIN
@@ -104,7 +104,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_CONTROL_METHOD
-#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 1
+#define VERTICAL_CTRL_MODULE_CONTROL_METHOD 0 //Start in fixed gain mode until you have the throttle at hover!
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_COV_METHOD
@@ -112,7 +112,7 @@ PRINT_CONFIG_VAR(VERTICAL_CTRL_MODULE_OPTICAL_FLOW_ID)
 #endif
 
 #ifndef VERTICAL_CTRL_MODULE_OPTICAL_FLOW_TYPE
-#define VERTICAL_CTRL_MODULE_OPTICAL_FLOW_TYPE 0
+#define VERTICAL_CTRL_MODULE_OPTICAL_FLOW_TYPE 1
 #endif
 
 static abi_event agl_ev; ///< The altitude ABI event
@@ -224,6 +224,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	int i;
 	float new_lp;
 	float div_factor;
+	int gps_on;
 	if(dt < 0) dt = 0.0f;
 	// get delta time, dt, to scale the divergence measurements:
 	struct timespec spec;
@@ -242,7 +243,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 	if (!in_flight) {
 		// When not flying and in mode module:
 		// Reset integrators
-		printf("NOT FLYING!\n");
+		//printf("NOT FLYING!\n");
 		reset_all_vars();
 	} else {
 
@@ -251,8 +252,14 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		 ***********/
 		if(v_ctrl.VISION_METHOD == 0) {
 			
-			// USE OPTITRACK HEIGHT if you are in divergence mode:
-			v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f; //How is it possible to define this?
+			// USE OPTITRACK HEIGHT if you are in divergence mode and if you have gps signal available:
+			gps_on = 1;
+			if (gps_on == 1){
+				v_ctrl.agl = (float) gps.lla_pos.alt / 1000.0f; //How is it possible to define this?
+			}
+			else {
+			v_ctrl.agl = 10.0f;
+			}
 			// else we get an immediate jump in divergence when switching on.
 			if(v_ctrl.agl_lp < 1E-5 || ind_hist == 0) {
 				v_ctrl.agl_lp = v_ctrl.agl;
@@ -273,7 +280,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			{
 				v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
 				v_ctrl.agl_lp = new_lp;
-				x_pos = GetPosX() + 4.0f; //So x cannot become negative
+				x_pos = GetPosX(); //UPDATE ONCE YOU KNOW IT EXACTLY!!
 
 				// calculate the fake divergence: ONLY IN DIVERGENCE MODE!
 				if(v_ctrl.agl_lp > 0.0001f) {
@@ -282,8 +289,8 @@ void vertical_ctrl_module_run(bool_t in_flight)
 					}
 					else {
 						opticalflow = v_ctrl.vel / x_pos;
-					}
 					printf("x_position: %f, opticalflow: %f\n", x_pos, opticalflow);
+					}
 					opticalflow_vision_dt = (opticalflow_vision/dt);
 					if(fabs(opticalflow_vision_dt) > 1E-5) {
 						div_factor = opticalflow / opticalflow_vision_dt;
@@ -306,10 +313,11 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		{
 			if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
 				div_factor = -1.28f; // magic number comprising field of view etc. NEED TO ADAPT THIS!
+				printf("Raw input flow = %f\n", opticalflow_vision); //What flow actually comes in?
 				float new_opticalflow = (opticalflow_vision * div_factor) / dt;
 				// deal with outliers: THIS ASSUMES OUTLIERS WILL BE EQUAL FOR BOTH OFs, ADAPT? Make generic?
 				if(fabs(new_opticalflow - opticalflow) > 0.20) {
-					printf("OUTLIER: div = %f", new_opticalflow);
+					printf("OUTLIER: div = %f\n", new_opticalflow);
 					if(new_opticalflow < opticalflow) new_opticalflow = opticalflow - 0.10f;
 					else new_opticalflow = opticalflow + 0.10f;
 					printf("corrected to div = %f\n", new_opticalflow);
@@ -334,7 +342,7 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 				}
 				// else: do nothing, let dt increment
-				//printf("Skipping, no new vision input: dt = %f\n", dt);
+				printf("Skipping, no new vision input: dt = %f\n", dt);
 				return;
 			}
 		}
@@ -391,8 +399,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 			else {
 				// ADAPTIVE GAIN CONTROL: For both the divergence and translational flow modes!
 
-				// adapt the gains according to the error in covariance:
-				float error_cov = v_ctrl.cov_set_point - cov_opticalflow;
+				// adapt the gains according to the error in covariance (OF THE PREVIOUS ITERATION):
+				float error_cov = v_ctrl.cov_set_point - cov_opticalflow; 
+				printf("cov_opticalflow = %f\n", cov_opticalflow);				
 				// limit the error_cov, which could else become very large:
 				if(error_cov > fabs(v_ctrl.cov_set_point)) error_cov = fabs(v_ctrl.cov_set_point);
 				pstate -= (v_ctrl.igain_adaptive * pstate) * error_cov; //v_ctrl.igain_adaptive * error_cov;//
@@ -501,7 +510,7 @@ static void vertical_ctrl_optical_flow_cb(uint8_t sender_id, uint32_t stamp, int
   else opticalflow_vision = flow_der_y;
   vision_message_nr++;
   if(vision_message_nr > 10) vision_message_nr = 0;
-  //printf("Received divergence: %f\n", divergence_vision);
+  printf("Received flow: %f\n", opticalflow_vision);
 }
 
 //???
@@ -521,7 +530,7 @@ void guidance_v_module_init(void)
 void guidance_v_module_enter(void)
 {
 	int i;
-  printf("ENTERING!");
+  printf("ENTERING!\n");
   // reset integrator
   v_ctrl.sum_err = 0.0f;
   landing = 0;

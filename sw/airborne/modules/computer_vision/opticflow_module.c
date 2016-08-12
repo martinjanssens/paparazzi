@@ -49,13 +49,13 @@ PRINT_CONFIG_VAR(OPTICFLOW_AGL_ID)
 
 /* The video device */
 #ifndef OPTICFLOW_DEVICE
-#define OPTICFLOW_DEVICE /dev/video2      ///< The video device
+#define OPTICFLOW_DEVICE /dev/video1      ///< The video device
 #endif
 PRINT_CONFIG_VAR(OPTICFLOW_DEVICE)
 
 /* The video device size (width, height) */
 #ifndef OPTICFLOW_DEVICE_SIZE
-#define OPTICFLOW_DEVICE_SIZE 320,240     ///< The video device size (width, height)
+#define OPTICFLOW_DEVICE_SIZE 1280,720      ///< The video device size (width, height)
 #endif
 #define __SIZE_HELPER(x, y) #x", "#y
 #define _SIZE_HELPER(x) __SIZE_HELPER(x)
@@ -113,10 +113,11 @@ void opticflow_module_init(void)
   // Set the opticflow state to 0
   opticflow_state.phi = 0;
   opticflow_state.theta = 0;
+  opticflow_state.psi = 0;
   opticflow_state.agl = 0;
 
   // Initialize the opticflow calculation
-  opticflow_calc_init(&opticflow, 320, 240);
+  opticflow_calc_init(&opticflow, 1280,720);
   opticflow_got_result = FALSE;
 
 #ifdef OPTICFLOW_SUBDEV
@@ -151,6 +152,7 @@ void opticflow_module_run(void)
   // Send Updated data to thread
   opticflow_state.phi = stateGetNedToBodyEulers_f()->phi;
   opticflow_state.theta = stateGetNedToBodyEulers_f()->theta;
+  opticflow_state.psi = stateGetNedToBodyEulers_f()->psi;
 
   // Update the stabilization loops on the current calculation
   if (opticflow_got_result) {

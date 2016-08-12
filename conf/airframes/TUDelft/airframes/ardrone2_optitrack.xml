@@ -7,7 +7,8 @@
       <define name="FAILSAFE_DESCENT_SPEED" value="0.5"/>
       <define name="USE_SONAR" value="0"/>
       <configure name="USE_BARO_BOARD" value="FALSE"/>
-      <configure name="USE_MAGNETOMETER" value="0"/>
+      <configure name="USE_MAGNETOMETER" value="0"/> <!-- Set TRUE to use magnetometer to estimate attitude -->
+    <!--  <define name="NO_GPS_NEEDED_FOR_NAV" value="TRUE"/> --> <!-- Should keep NAV available without GPS access -->
     </target>
 
     <target name="nps" board="pc">
@@ -20,19 +21,19 @@
     <subsystem name="motor_mixing"/>
     <subsystem name="actuators" type="ardrone2"/>
     <subsystem name="imu" type="ardrone2"/>
-    <subsystem name="gps" type="datalink"/>
-    <subsystem name="stabilization" type="indi"/>
+    <subsystem name="gps" type="datalink"/> <!-- Turn off when not in optitrack -->
+    <subsystem name="stabilization" type="indi"/> <!-- Uses int_quat in opticflow mode -->
     <subsystem name="ahrs" type="int_cmpl_quat"/>
     <subsystem name="ins" type="extended"/>
-    <!-- <subsystem name="guidance" type="indi"/> -->
+   <!-- <subsystem name="guidance" type="indi"/> -->
   </firmware>
 
   <!-- Modules -->
   <modules main_freq="512">
     <load name="bat_voltage_ardrone2.xml"/>
-    <load name="video_thread.xml">
+   <!-- <load name="video_thread.xml">
         <define name="VIDEO_THREAD_CAMERA" value="front_camera"/>
-    </load>
+    </load>-->
     <load name="cv_opticflow.xml"/>
     <load name="vertical_ctrl_module_demo_generic.xml"/>
     

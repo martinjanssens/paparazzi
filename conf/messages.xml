@@ -2163,8 +2163,8 @@
   </message>
   
   <message name="FAKE_OPTICAL_FLOW" id="252">
-    <field name="opticalflow"                type="float"/>
-    <field name="opticalflow_vision"         type="float"/>
+    <field name="opticalflow"               type="float"/>
+    <field name="opticalflow_vision"        type="float"/>
     <field name="normalized_thrust"         type="float"/>
     <field name="cov_opticalflow"	    type="float"/>
     <field name="pstate" 		    type="float"/>

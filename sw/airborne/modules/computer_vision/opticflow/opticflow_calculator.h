@@ -38,6 +38,7 @@ struct opticflow_t {
   bool_t got_first_img;             ///< If we got a image to work with
   float prev_phi;                   ///< Phi from the previous image frame
   float prev_theta;                 ///< Theta from the previous image frame
+  float prev_psi;                   ///< Psi from the previous image frame
   struct image_t img_gray;          ///< Current gray image frame
   struct image_t prev_img_gray;     ///< Previous gray image frame
   struct timeval prev_timestamp;    ///< Timestamp of the previous frame, used for FPS calculation
