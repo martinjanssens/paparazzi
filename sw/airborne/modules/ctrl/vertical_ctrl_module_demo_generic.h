@@ -66,9 +66,9 @@ float opticalflow_history[COV_WINDOW_SIZE];
 float past_opticalflow_history[COV_WINDOW_SIZE];
 
 // for example use the standard horizontal (hover) mode // GUIDANCE_H_MODE_ATTITUDE // GUIDANCE_H_MODE_HOVER
-#define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_HOVER
+#define GUIDANCE_H_MODE_MODULE_SETTING GUIDANCE_H_MODE_NAV
 
-// and own guidance_v, I guess using the extension MODULE means that it's using the guidance_v_mode defined in this module
+// and own guidance_v
 #define GUIDANCE_V_MODE_MODULE_SETTING GUIDANCE_V_MODE_MODULE
 
 float get_cov(float* a, float* b, int n_elements);

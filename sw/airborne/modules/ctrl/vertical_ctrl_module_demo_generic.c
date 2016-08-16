@@ -57,7 +57,7 @@ long previous_time;
 
 // This is the message including the variables I get to see in the plotter. Despite the crappy name, this still works with translational flow, but you need to include the x-distance in it once you have made it available in this program!
 static void send_opticalflow(void) {
-  DOWNLINK_SEND_FAKE_OPTICAL_FLOW (DefaultChannel, DefaultDevice, &opticalflow_vision, &opticalflow_vision_dt, &normalized_thrust, &cov_opticalflow, &pstate, &pused, &(v_ctrl.agl), &x_pos);
+  DOWNLINK_SEND_FAKE_OPTICAL_FLOW (DefaultChannel, DefaultDevice, &opticalflow, &opticalflow_vision_dt, &normalized_thrust, &cov_opticalflow, &pstate, &pused, &(v_ctrl.agl), &x_pos);
  }
 
 #include "modules/ctrl/vertical_ctrl_module_demo.h"
@@ -146,7 +146,7 @@ void vertical_ctrl_module_init(void)
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.dgain = VERTICAL_CTRL_MODULE_DGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.710f; //0.666f; // 0.640 with small battery
+  v_ctrl.nominal_thrust = 0.780f; //0.710 was original //0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
   v_ctrl.COV_METHOD = VERTICAL_CTRL_MODULE_COV_METHOD;
@@ -278,9 +278,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 
 			if(dt > 0.0001f)
 			{
-				v_ctrl.vel = (new_lp - v_ctrl.agl_lp) / dt; // should still be divided by dt!
+				v_ctrl.vel = (new_lp - v_ctrl.agl_lp) ; // should still be divided by dt!
 				v_ctrl.agl_lp = new_lp;
-				x_pos = GetPosX(); //UPDATE ONCE YOU KNOW IT EXACTLY!!
+				x_pos = GetPosX() + 5.0f; //FIXME ONCE YOU KNOW IT EXACTLY!!
 
 				// calculate the fake divergence: ONLY IN DIVERGENCE MODE!
 				if(v_ctrl.agl_lp > 0.0001f) {
