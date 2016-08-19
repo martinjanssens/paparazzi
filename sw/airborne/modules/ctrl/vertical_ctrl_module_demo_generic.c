@@ -139,21 +139,21 @@ void vertical_ctrl_module_init(void)
   v_ctrl.agl_lp = 0.0f;
   v_ctrl.vel = 0.0f;
   v_ctrl.setpoint = 0.0f;
-  v_ctrl.cov_set_point = -0.025f;
+  v_ctrl.cov_set_point = -0.015f;
   v_ctrl.cov_limit = 0.0010f; //1.0f; // for cov(uz,OF)
   v_ctrl.lp_factor = 0.95f;
   v_ctrl.pgain = VERTICAL_CTRL_MODULE_PGAIN;
   v_ctrl.igain = VERTICAL_CTRL_MODULE_IGAIN;
   v_ctrl.dgain = VERTICAL_CTRL_MODULE_DGAIN;
   v_ctrl.sum_err = 0.0f;
-  v_ctrl.nominal_thrust = 0.780f; //0.710 was original //0.666f; // 0.640 with small battery
+  v_ctrl.nominal_thrust = 0.610f; //0.710 was original //0.666f; // 0.640 with small battery
   v_ctrl.VISION_METHOD = VERTICAL_CTRL_MODULE_VISION_METHOD;
   v_ctrl.CONTROL_METHOD = VERTICAL_CTRL_MODULE_CONTROL_METHOD;
   v_ctrl.COV_METHOD = VERTICAL_CTRL_MODULE_COV_METHOD;
   v_ctrl.OPTICAL_FLOW_TYPE = VERTICAL_CTRL_MODULE_OPTICAL_FLOW_TYPE;
   v_ctrl.delay_steps = 40;
-  v_ctrl.pgain_adaptive = 10.0;
-  v_ctrl.igain_adaptive = 0.25;
+  v_ctrl.pgain_adaptive = 2.0; // Originally 10
+  v_ctrl.igain_adaptive = 0.10; // Originally 0.25
   v_ctrl.dgain_adaptive = 0.00;
 
   struct timespec spec;
@@ -312,9 +312,9 @@ void vertical_ctrl_module_run(bool_t in_flight)
 		else 
 		{
 			if(vision_message_nr != previous_message_nr && dt > 1E-5 && ind_hist > 1) {
-				div_factor = -1.28f; // magic number comprising field of view etc. NEED TO ADAPT THIS!
+				div_factor = 1.0f; // magic number comprising field of view etc. Was -1.28
 				printf("Raw input flow = %f\n", opticalflow_vision); //What flow actually comes in?
-				float new_opticalflow = (opticalflow_vision * div_factor) / dt;
+				float new_opticalflow = (opticalflow_vision * div_factor); // /dt
 				// deal with outliers: THIS ASSUMES OUTLIERS WILL BE EQUAL FOR BOTH OFs, ADAPT? Make generic?
 				if(fabs(new_opticalflow - opticalflow) > 0.20) {
 					printf("OUTLIER: div = %f\n", new_opticalflow);

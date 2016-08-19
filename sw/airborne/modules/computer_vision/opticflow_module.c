@@ -103,7 +103,7 @@ static void opticflow_telem_send(struct transport_tx *trans, struct link_device 
 #endif
 
 /**
- * Initialize the optical flow module for the bottom camera
+ * Initialize the optical flow module for the camera
  */
 void opticflow_module_init(void)
 {
@@ -117,7 +117,7 @@ void opticflow_module_init(void)
   opticflow_state.agl = 0;
 
   // Initialize the opticflow calculation
-  opticflow_calc_init(&opticflow, 1280,720);
+  opticflow_calc_init(&opticflow, 360,240); //This now does not correspond to the image size!
   opticflow_got_result = FALSE;
 
 #ifdef OPTICFLOW_SUBDEV
