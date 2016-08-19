@@ -61,6 +61,14 @@ PRINT_CONFIG_VAR(OPTICFLOW_DEVICE)
 #define _SIZE_HELPER(x) __SIZE_HELPER(x)
 PRINT_CONFIG_MSG("OPTICFLOW_DEVICE_SIZE = " _SIZE_HELPER(OPTICFLOW_DEVICE_SIZE))
 
+/*The cropped image size and center*/
+#ifndef OPTICFLOW_CROPPED_SIZE
+#define OPTICFLOW_CROPPED_SIZE 360,240
+#endif
+#ifndef OPTICFLOW_CROPPED_CENTER
+#define OPTICFLOW_CROPPED_CENTER 640,360
+#endif
+
 /* The video device buffers (the amount of V4L2 buffers) */
 #ifndef OPTICFLOW_DEVICE_BUFFERS
 #define OPTICFLOW_DEVICE_BUFFERS 15       ///< The video device buffers (the amount of V4L2 buffers)
@@ -117,7 +125,7 @@ void opticflow_module_init(void)
   opticflow_state.agl = 0;
 
   // Initialize the opticflow calculation
-  opticflow_calc_init(&opticflow, 360,240); //This now does not correspond to the image size!
+  opticflow_calc_init(&opticflow, 360,240); //FIXME Take out the hardcoded path
   opticflow_got_result = FALSE;
 
 #ifdef OPTICFLOW_SUBDEV
@@ -219,6 +227,10 @@ static void *opticflow_module_calc(void *data __attribute__((unused)))
     printf("[opticflow_module] Could not start capture of the camera\n");
     return 0;
   }
+  
+  struct point_t center;
+  center.x = 640;
+  center.y = 360;
 
 #if OPTICFLOW_DEBUG
   // Create a new JPEG image
@@ -231,6 +243,10 @@ static void *opticflow_module_calc(void *data __attribute__((unused)))
     // Try to fetch an image
     struct image_t img;
     v4l2_image_get(opticflow_dev, &img);
+
+    // Crop the image
+    // image_create(&opticflow->img_gray, OPTICFLOW_CROPPED_SIZE, IMAGE_GRAYSCALE);
+    image_crop_window(&img, &opticflow.img_gray, &center);
 
     // Copy the state
     pthread_mutex_lock(&opticflow_mutex);

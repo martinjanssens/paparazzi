@@ -79,5 +79,5 @@ int32_t image_multiply(struct image_t *img_a, struct image_t *img_b, struct imag
 void image_show_points(struct image_t *img, struct point_t *points, uint16_t points_cnt);
 void image_show_flow(struct image_t *img, struct flow_t *vectors, uint16_t points_cnt, uint8_t subpixel_factor);
 void image_draw_line(struct image_t *img, struct point_t *from, struct point_t *to);
-
+void image_crop_window(struct image_t *input, struct image_t *output, struct point_t *center);
 #endif

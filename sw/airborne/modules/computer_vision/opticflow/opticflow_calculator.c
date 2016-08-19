@@ -119,12 +119,12 @@ static int cmp_flow(const void *a, const void *b);
 /**
  * Initialize the opticflow calculator
  * @param[out] *opticflow The new optical flow calculator
- * @param[in] *w The image width
- * @param[in] *h The image height
+ * @param[in] *w The input image width
+ * @param[in] *h The input image height
  */
-void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h)
+void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h) //w and h are the cropped image widths
 {
-  /* Create the image buffers */
+  /* Create the image buffers (these are now cropped) */
   image_create(&opticflow->img_gray, w, h, IMAGE_GRAYSCALE);
   image_create(&opticflow->prev_img_gray, w, h, IMAGE_GRAYSCALE);
 

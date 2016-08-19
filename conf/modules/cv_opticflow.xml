@@ -30,6 +30,8 @@
       <define name="SUBPIXEL_FACTOR" value="10" description="Amount of subpixels per pixel, used for more precise (subpixel) calculations of the flow"/>
       <define name="MAX_ITERATIONS" value="10" description="Maximum number of iterations the Lucas Kanade algorithm should take"/>
       <define name="THRESHOLD_VEC" value="2" description="Threshold in subpixels when the iterations of Lucas Kanade should stop"/>
+      <define name="CROPPED_SIZE" value="360,240" description="Cropped image size to use in the optic flow calculation"/>
+      <define name="CROPPED_CENTER" value="640,360" description="Coordinate of the centre of the cropped image"/>
 
       <!-- FAST9 corner detection parameters -->
       <define name="FAST9_ADAPTIVE" value="TRUE" description="Whether we should use and adapative FAST9 crner detection threshold"/>

@@ -533,3 +533,52 @@ void image_draw_line(struct image_t *img, struct point_t *from, struct point_t *
     }
   }
 }
+
+/**
+ * This outputs a cropped image within the original image
+ * @param[in] *input Input image (grayscale only)
+ * @param[in/out] *output Cropped output image (image must already be created, and width and height must already be specified)
+ * @param[in] *center Center point in subpixel coordinates, the point_t struct contains x and y position of the center
+ */
+void image_crop_window(struct image_t *input, struct image_t *output, struct point_t *center)
+{
+  uint8_t *input_buf = (uint8_t *)input->buf;
+  uint8_t *output_buf = (uint8_t *)output->buf;
+
+  // Calculate the window size
+  uint16_t half_window_w = output->w / 2;
+  uint16_t half_window_h = output->h / 2;
+
+  // Find location of pixels to border output image
+  uint16_t x_max = center->x + half_window_w;
+  uint16_t x_min = center->x - half_window_w;
+  uint16_t y_max = center->y + half_window_h;
+  uint16_t y_min = center->y - half_window_h;
+
+  uint16_t top_left = 0;
+  uint16_t k = 0;
+  uint16_t l = 0;
+
+  // Go through the whole input image in normal coordinates, add column right and row down of center
+  for (uint16_t i = 0; i <= input->w; i++) {
+    for (uint16_t j = 0; j <= input->h; j++) {
+      
+      // Check if the pixel is within the cropped image
+      if (x_min < i < x_max && y_min < j < y_max) {
+        // Is it the first time it finds a match? Then you're in the top left corner
+        if (top_left == 0) {
+          top_left = 1;
+        }
+          
+        // Read input image's buffer data to the output buffer
+        output_buf[output->w * l + k] = input_buf[input->w * j + i];
+        
+        //Update output counters
+        k++;
+      }
+      if (top_left == 1) {
+        l++;  
+      } 
+    }
+  }
+}
